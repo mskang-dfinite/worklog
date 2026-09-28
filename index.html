@@ -1,0 +1,346 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<title>나의 업무일지</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+:root{
+  color-scheme:light;
+  --bg:#f5f6f8; --paper:#ffffff; --ink:#1d2433; --muted:#6b7385; --line:#dfe3ea;
+  --accent:#2f5bd3; --accent-soft:#e7edfb; --on-accent:#ffffff; --done:#9aa1ae; --danger:#c2413a;
+  --sans:"IBM Plex Sans KR",system-ui,-apple-system,"Malgun Gothic",sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){:root{
+  color-scheme:dark;--bg:#12151c;--paper:#1a1f29;--ink:#e6e9ef;--muted:#8e96a8;--line:#2a3140;
+  --accent:#7d9bf0;--accent-soft:#232d45;--on-accent:#0e1320;--done:#5f6778;--danger:#e2766f;}}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:15px;line-height:1.55}
+[hidden]{display:none!important}
+.wrap{max-width:960px;margin:0 auto;padding:28px 16px 48px;display:grid;grid-template-columns:1fr 240px;gap:24px}
+@media (max-width:760px){.wrap{grid-template-columns:1fr}}
+header{grid-column:1/-1;display:flex;flex-wrap:wrap;align-items:center;gap:12px;justify-content:space-between}
+h1{margin:0;font-size:20px;font-weight:700;letter-spacing:-.01em}
+.nav{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+button,input,textarea,select{font:inherit;color:inherit}
+.btn{background:var(--paper);border:1px solid var(--line);border-radius:8px;padding:6px 12px;cursor:pointer}
+.btn:hover{border-color:var(--accent)}
+.btn:disabled{opacity:.5;cursor:default}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
+.btn.ghost{border-color:transparent;background:none;color:var(--muted)}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+#date{background:var(--paper);border:1px solid var(--line);border-radius:8px;padding:5px 8px;font-family:var(--mono)}
+.sheet{background:var(--paper);border:1px solid var(--line);border-radius:12px;padding:20px}
+.day{display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap;border-bottom:1px solid var(--line);padding-bottom:12px}
+.day h2{margin:0;font-size:22px;font-weight:700}
+.day .wd{color:var(--muted);font-weight:500;margin-left:6px;font-size:16px}
+.prog{font-family:var(--mono);font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums}
+.bar{height:4px;background:var(--line);border-radius:2px;margin-top:12px;overflow:hidden}
+.bar i{display:block;height:100%;background:var(--accent);width:0;transition:width .25s}
+form.add{display:flex;flex-wrap:wrap;align-items:flex-end;gap:8px;margin-top:16px}
+form.add .f{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted);letter-spacing:.04em}
+form.add .grow{flex:1 1 220px;min-width:0}
+form.add input,form.add select{min-width:0;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:7px 10px;color:var(--ink);font-size:15px;letter-spacing:0}
+form.add input[type=date]{font-family:var(--mono);font-size:14px}
+form.add .btn{padding:8px 16px}
+ul{list-style:none;margin:12px 0 0;padding:0}
+li{display:flex;align-items:center;gap:10px;padding:8px 4px;border-bottom:1px dashed var(--line)}
+li input[type=checkbox]{width:18px;height:18px;accent-color:var(--accent);flex:none;margin:0}
+li .t{flex:1;min-width:0;overflow-wrap:anywhere}
+li.done .t{color:var(--done);text-decoration:line-through}
+li .x{border:0;background:none;color:var(--muted);cursor:pointer;padding:2px 6px;border-radius:6px}
+li .x:hover{color:var(--danger);background:var(--accent-soft)}
+.cat{flex:none;font-size:12px;font-weight:500;padding:2px 8px;border-radius:999px;background:var(--accent-soft);color:var(--accent);white-space:nowrap}
+.due{flex:none;font-family:var(--mono);font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}
+.due.over{color:var(--danger)}
+.ck{flex:none;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:11px;color:var(--muted);cursor:pointer}
+.empty{color:var(--muted);padding:16px 4px}
+.row{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+label.lab{display:block;margin-top:20px;font-size:12px;letter-spacing:.06em;color:var(--muted);font-weight:500}
+textarea{width:100%;box-sizing:border-box;min-height:110px;margin-top:6px;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:10px 12px;resize:vertical}
+.saverow{display:flex;align-items:center;gap:12px;margin-top:8px}
+.status{font-size:12px;color:var(--muted);min-height:1.2em}
+aside h3{margin:0 0 8px;font-size:12px;letter-spacing:.06em;color:var(--muted);font-weight:500}
+aside ol{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:2px}
+aside button{width:100%;display:flex;justify-content:space-between;gap:8px;background:none;border:0;border-radius:6px;padding:6px 8px;cursor:pointer;text-align:left;font-family:var(--mono);font-size:13px;font-variant-numeric:tabular-nums}
+aside button:hover{background:var(--paper)}
+aside button.on{background:var(--accent-soft);color:var(--accent)}
+aside .c{color:var(--muted);font-size:13px}
+.login{max-width:380px;margin:12vh auto 0;padding:0 16px}
+.login .sheet{display:flex;flex-direction:column;gap:12px}
+.login h1{font-size:22px}
+.login p{margin:0;color:var(--muted);font-size:14px}
+.login input{background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:9px 12px}
+@media (prefers-reduced-motion:reduce){.bar i{transition:none}}
+</style>
+</head>
+<body>
+
+<!-- 연결 화면 (기기마다 처음 한 번) -->
+<div class="login" id="loginView" hidden>
+  <form class="sheet" id="loginForm">
+    <h1>나의 업무일지</h1>
+    <p>이 기기에서 처음 쓰는 경우 GitHub 토큰을 한 번 붙여넣어 주세요. 토큰은 이 브라우저에만 저장됩니다.</p>
+    <input type="password" id="token" placeholder="github_pat_…" autocomplete="off" required>
+    <button class="btn primary" type="submit" id="loginBtn">연결</button>
+    <div class="status" id="loginStatus" aria-live="polite"></div>
+  </form>
+</div>
+
+<!-- 일지 화면 -->
+<div class="wrap" id="appView" hidden>
+  <header>
+    <h1>나의 업무일지</h1>
+    <div class="nav">
+      <button class="btn" id="prev" aria-label="전날">‹</button>
+      <input type="date" id="date" aria-label="날짜 선택">
+      <button class="btn" id="next" aria-label="다음날">›</button>
+      <button class="btn" id="today">오늘</button>
+      <button class="btn ghost" id="logout">이 기기 연결 해제</button>
+    </div>
+  </header>
+
+  <main class="sheet">
+    <div class="day">
+      <h2 id="title"></h2>
+      <span class="prog" id="prog">0 / 0 완료</span>
+    </div>
+    <div class="bar"><i id="barfill"></i></div>
+
+    <form class="add" id="addform">
+      <label class="f"><span>분류</span>
+        <select id="newcat">
+          <option>정부사업</option><option>전략기획</option><option>IR</option>
+          <option>매출</option><option>기타</option><option>개인</option>
+        </select>
+      </label>
+      <label class="f grow"><span>업무</span>
+        <input id="newtask" placeholder="예: 주간 보고서 초안 작성" autocomplete="off">
+      </label>
+      <label class="f"><span>기한(일)</span><input type="date" id="newdate"></label>
+      <label class="f"><span>기한(시)</span><select id="newtime"><option value="">-</option></select></label>
+      <button class="btn primary" type="submit">추가</button>
+    </form>
+    <ul id="list"></ul>
+    <div class="row">
+      <button class="btn" id="carry">이전 기록의 미완료 가져오기</button>
+    </div>
+
+    <label class="lab" for="memo">메모</label>
+    <textarea id="memo" placeholder="진행 상황, 이슈, 내일 할 일 등을 자유롭게 적어두세요"></textarea>
+    <div class="saverow">
+      <button class="btn primary" id="savebtn">저장</button>
+      <div class="status" id="status" aria-live="polite"></div>
+    </div>
+  </main>
+
+  <aside>
+    <h3>최근 기록</h3>
+    <ol id="hist"></ol>
+  </aside>
+</div>
+
+<script>
+// 기록은 비공개 저장소에 한 달 = JSON 파일 하나로 저장 (data/2026-09.json)
+const REPO = "mskang-dfinite/worklog-data";
+const TOKEN_KEY = "worklog_gh_token";
+let token = null;
+try { token = localStorage.getItem(TOKEN_KEY); } catch {}
+
+const b64enc = s => { const b = new TextEncoder().encode(s); let r = ""; for (let i = 0; i < b.length; i += 8192) r += String.fromCharCode(...b.subarray(i, i + 8192)); return btoa(r); };
+const b64dec = s => new TextDecoder().decode(Uint8Array.from(atob(s.replace(/\n/g, "")), c => c.charCodeAt(0)));
+
+async function gh(path, opts = {}){
+  const r = await fetch(`https://api.github.com/repos/${REPO}${path}`, {
+    ...opts, cache: "no-store",
+    headers: { Authorization: "Bearer " + token, Accept: "application/vnd.github+json", ...(opts.headers || {}) },
+  });
+  if (r.status === 401) { disconnect("토큰이 만료되었거나 올바르지 않습니다. 새 토큰을 붙여넣어 주세요."); throw new Error("401"); }
+  return r;
+}
+
+// ym -> { sha, data: { "YYYY-MM-DD": {items, memo} } }
+const months = {};
+async function loadMonth(ym, force){
+  if (months[ym] && !force) return months[ym];
+  const r = await gh(`/contents/data/${ym}.json`);
+  if (r.status === 404) return (months[ym] = { sha: null, data: {} });
+  if (!r.ok) throw new Error(r.status);
+  const j = await r.json();
+  return (months[ym] = { sha: j.sha, data: JSON.parse(b64dec(j.content)) });
+}
+async function writeDay(day, rec){
+  const ym = day.slice(0, 7);
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const m = await loadMonth(ym, attempt > 0);  // 두 번째는 다른 기기에서 바뀐 최신본 위에 덮어씀
+    const data = { ...m.data };
+    if (rec) data[day] = rec; else delete data[day];
+    const r = await gh(`/contents/data/${ym}.json`, {
+      method: "PUT",
+      body: JSON.stringify({ message: `worklog ${day}`, content: b64enc(JSON.stringify(data, null, 1)), ...(m.sha ? { sha: m.sha } : {}) }),
+    });
+    if (r.ok) { months[ym] = { sha: (await r.json()).content.sha, data }; return; }
+    if (r.status !== 409 && r.status !== 422) throw new Error(r.status);
+  }
+  throw new Error("conflict");
+}
+const prevYm = ym => { const [y, m] = ym.split("-").map(Number); return m === 1 ? `${y-1}-12` : `${y}-${pad(m-1)}`; };
+
+const $ = id => document.getElementById(id);
+const pad = n => String(n).padStart(2, "0");
+const ymd = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+const shift = (s, n) => { const d = new Date(s + "T00:00"); d.setDate(d.getDate() + n); return ymd(d); };
+const newId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+const WD = ["일","월","화","수","목","금","토"];
+for (let h = 0; h < 24; h++) $("newtime").add(new Option(h + "시", pad(h)));
+
+let cur = ymd(new Date()), state = { items: [], memo: "" }, memoTimer = null, allDays = [], dirty = false;
+
+function setStatus(t){ $("status").textContent = t; }
+
+function render(){
+  const d = new Date(cur + "T00:00");
+  $("title").innerHTML = `${d.getMonth()+1}월 ${d.getDate()}일<span class="wd">${WD[d.getDay()]}요일</span>`;
+  $("date").value = cur;
+  const done = state.items.filter(i => i.done).length, tot = state.items.length;
+  $("prog").textContent = `${done} / ${tot} 완료`;
+  $("barfill").style.width = tot ? (done / tot * 100) + "%" : "0";
+  const ul = $("list"); ul.replaceChildren();
+  if (!tot) { const li = document.createElement("li"); li.className = "empty"; li.textContent = "아직 등록된 할 일이 없습니다."; ul.append(li); }
+  state.items.forEach(it => {
+    const li = document.createElement("li"); if (it.done) li.className = "done";
+    const cb = document.createElement("input"); cb.type = "checkbox"; cb.checked = it.done; cb.id = "cb-" + it.id;
+    cb.onchange = () => { it.done = cb.checked; save(); };
+    const t = document.createElement("span"); t.className = "t"; t.textContent = it.text;
+    const cat = document.createElement("span"); cat.className = "cat"; cat.textContent = it.cat || "기타";
+    const due = document.createElement("span"); due.className = "due";
+    const hh = it.dueTime ? it.dueTime.slice(0, 2) : "";
+    if (it.dueDate || hh) {
+      due.textContent = [it.dueDate ? it.dueDate.slice(5).replace("-", "/") : "", hh ? Number(hh) + "시" : ""].filter(Boolean).join(" ");
+      const dl = (it.dueDate || cur) + "T" + (hh ? hh + ":59" : "23:59");
+      if (!it.done && new Date(dl) < new Date()) due.classList.add("over");
+    }
+    const x = document.createElement("button"); x.className = "x"; x.textContent = "삭제"; x.setAttribute("aria-label", "삭제: " + it.text);
+    x.onclick = () => { state.items = state.items.filter(i => i !== it); save(); };
+    const ck = document.createElement("label"); ck.className = "ck"; ck.htmlFor = cb.id;
+    const ckt = document.createElement("span"); ckt.textContent = "완료";
+    ck.append(ckt, cb);
+    li.append(cat, t, due, x, ck); ul.append(li);
+  });
+  if (document.activeElement !== $("memo")) $("memo").value = state.memo || "";
+  renderHist();
+}
+
+function renderHist(){
+  const ol = $("hist"); ol.replaceChildren();
+  if (!allDays.length) { const li = document.createElement("li"); li.className = "c"; li.textContent = "기록이 없습니다"; ol.append(li); return; }
+  allDays.forEach(s => {
+    const b = document.createElement("button"); if (s.id === cur) b.className = "on";
+    b.innerHTML = `<span>${s.id}</span><span class="c">${s.done}/${s.tot}</span>`;
+    b.onclick = () => go(s.id);
+    const li = document.createElement("li"); li.append(b); ol.append(li);
+  });
+}
+
+// 최근 기록: 보고 있는 달 + 전달에서 최근 30일
+function loadHist(){
+  const ym = cur.slice(0, 7);
+  const days = { ...(months[prevYm(ym)]?.data || {}), ...(months[ym]?.data || {}) };
+  allDays = Object.keys(days).sort().reverse().slice(0, 30).map(id => {
+    const it = days[id].items || []; return { id, tot: it.length, done: it.filter(i => i.done).length };
+  });
+  renderHist();
+}
+
+// 저장은 순서대로 하나씩
+let saving = Promise.resolve();
+function save(){
+  dirty = true;
+  render();
+  const day = cur;
+  const rec = { items: state.items.map(i => ({ ...i })), memo: state.memo || "" };
+  const empty = !rec.items.length && !rec.memo.trim();
+  saving = saving.then(() => writeDay(day, empty ? null : rec))
+    .then(() => { dirty = false; setStatus("저장됨"); loadHist(); },
+          () => setStatus("저장하지 못했습니다. 인터넷 연결을 확인하고 저장 버튼을 다시 눌러주세요."));
+}
+
+async function go(day){
+  if (dirty) await saving;
+  clearTimeout(memoTimer);
+  cur = day;
+  state = { items: [], memo: "" };
+  setStatus("불러오는 중…");
+  render();
+  try {
+    const ym = day.slice(0, 7);
+    const [m] = await Promise.all([loadMonth(ym), loadMonth(prevYm(ym))]);
+    if (day !== cur) return;  // 그 사이 다른 날짜로 이동함
+    const d = m.data[day] || {};
+    state = { items: (d.items || []).map(i => ({ ...i })), memo: d.memo || "" };
+    setStatus("");
+  } catch { if (day === cur) setStatus("불러오지 못했습니다. 새로고침해주세요."); }
+  render();
+}
+
+$("addform").onsubmit = e => {
+  e.preventDefault();
+  const v = $("newtask").value.trim(); if (!v) { $("newtask").focus(); return; }
+  state.items.push({ id: newId(), cat: $("newcat").value, text: v, dueDate: $("newdate").value, dueTime: $("newtime").value, done: false });
+  $("newtask").value = ""; $("newtime").value = ""; save();
+};
+$("memo").oninput = () => {
+  state.memo = $("memo").value; dirty = true; setStatus("입력 중…");
+  clearTimeout(memoTimer); memoTimer = setTimeout(save, 800);
+};
+$("savebtn").onclick = () => { clearTimeout(memoTimer); state.memo = $("memo").value; setStatus("저장 중…"); save(); };
+$("prev").onclick = () => go(shift(cur, -1));
+$("next").onclick = () => go(shift(cur, 1));
+$("today").onclick = () => go(ymd(new Date()));
+$("date").onchange = () => { if ($("date").value) go($("date").value); };
+$("carry").onclick = () => {
+  // ponytail: 이번 달+전달만 찾음. 두 달 넘게 비었으면 못 찾음
+  const ym = cur.slice(0, 7);
+  const days = { ...(months[prevYm(ym)]?.data || {}), ...(months[ym]?.data || {}) };
+  const prev = Object.keys(days).filter(d => d < cur).sort().pop();
+  if (!prev) { setStatus("이전 기록이 없습니다."); return; }
+  const have = new Set(state.items.map(i => i.text));
+  const add = (days[prev].items || []).filter(i => !i.done && !have.has(i.text));
+  if (!add.length) { setStatus(`${prev}에 가져올 미완료 항목이 없습니다.`); return; }
+  add.forEach(i => state.items.push({ ...i, id: newId(), done: false }));
+  save(); setStatus(`${prev}에서 ${add.length}개를 가져왔습니다.`);
+};
+window.addEventListener("beforeunload", e => { if (dirty) e.preventDefault(); });
+
+// 연결 — 토큰이 저장소를 읽을 수 있는지 확인 후 이 브라우저에 보관
+$("loginForm").onsubmit = async e => {
+  e.preventDefault();
+  $("loginBtn").disabled = true;
+  token = $("token").value.trim();
+  let ok = false;
+  try { ok = (await fetch(`https://api.github.com/repos/${REPO}`, { headers: { Authorization: "Bearer " + token } })).ok; } catch {}
+  $("loginBtn").disabled = false;
+  if (!ok) { token = null; $("loginStatus").textContent = "연결하지 못했습니다. 토큰을 다시 확인해주세요."; return; }
+  try { localStorage.setItem(TOKEN_KEY, token); } catch {}
+  $("token").value = "";
+  show();
+};
+function disconnect(msg){
+  token = null;
+  try { localStorage.removeItem(TOKEN_KEY); } catch {}
+  $("loginStatus").textContent = msg || "";
+  show();
+}
+$("logout").onclick = () => disconnect();
+
+function show(){
+  $("loginView").hidden = !!token;
+  $("appView").hidden = !token;
+  if (token) go(cur);
+}
+show();
+</script>
+</body>
+</html>
