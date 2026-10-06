@@ -56,6 +56,13 @@ li .x:hover{color:var(--danger);background:var(--accent-soft)}
 .cat{flex:none;font-size:12px;font-weight:500;padding:2px 8px;border-radius:999px;background:var(--accent-soft);color:var(--accent);white-space:nowrap}
 .due{flex:none;font-family:var(--mono);font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}
 .due.over{color:var(--danger)}
+.grip{flex:none;cursor:grab;color:var(--muted);user-select:none;padding:0 2px}
+li.dragging{opacity:.4}
+li.edit{padding:4px 0}
+li.edit form.add{margin:0;flex:1}
+.tm{display:flex;align-items:center;gap:6px}
+.eod{display:flex;align-items:center;gap:3px;font-size:11px;color:var(--muted);letter-spacing:0;cursor:pointer;white-space:nowrap}
+.eod input{margin:0;accent-color:var(--accent)}
 .ck{flex:none;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:11px;color:var(--muted);cursor:pointer}
 .empty{color:var(--muted);padding:16px 4px}
 .row{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
@@ -113,7 +120,7 @@ aside .c{color:var(--muted);font-size:13px}
     <form class="add" id="addform">
       <label class="f"><span>분류</span>
         <select id="newcat">
-          <option>정부사업</option><option>전략기획</option><option>IR</option>
+          <option>전략기획</option><option>정부사업</option><option>IR</option>
           <option>매출</option><option>기타</option><option>개인</option>
         </select>
       </label>
@@ -121,7 +128,10 @@ aside .c{color:var(--muted);font-size:13px}
         <input id="newtask" placeholder="예: 주간 보고서 초안 작성" autocomplete="off">
       </label>
       <label class="f"><span>기한(일)</span><input type="date" id="newdate"></label>
-      <label class="f"><span>기한(시)</span><select id="newtime"><option value="">-</option></select></label>
+      <div class="f"><span>기한(시)</span><span class="tm">
+        <select id="newtime" aria-label="기한(시)"><option value="">-</option><option value="eod" hidden>퇴근 전</option></select>
+        <label class="eod"><input type="checkbox" id="neweod">E.O.D</label>
+      </span></div>
       <button class="btn primary" type="submit">추가</button>
     </form>
     <ul id="list"></ul>
@@ -197,7 +207,50 @@ const newId = () => Date.now().toString(36) + Math.random().toString(36).slice(2
 const WD = ["일","월","화","수","목","금","토"];
 for (let h = 0; h < 24; h++) $("newtime").add(new Option(h + "시", pad(h)));
 
-let cur = ymd(new Date()), state = { items: [], memo: "" }, memoTimer = null, allDays = [], dirty = false;
+let cur = ymd(new Date()), state = { items: [], memo: "" }, memoTimer = null, allDays = [], dirty = false, editId = null, dragLi = null;
+
+// E.O.D 체크 → 시간 칸에 "퇴근 전" 표시하고 잠금 (값은 dueTime "eod")
+function bindEod(sel, cb){
+  const sync = () => { if (cb.checked) sel.value = "eod"; else if (sel.value === "eod") sel.value = ""; sel.disabled = cb.checked; };
+  cb.checked = sel.value === "eod"; cb.onchange = sync; sync();
+}
+bindEod($("newtime"), $("neweod"));
+
+function editor(it){
+  const f = document.createElement("form"); f.className = "add";
+  const cat = $("newcat").cloneNode(true); cat.removeAttribute("id"); cat.value = it.cat || "기타"; cat.setAttribute("aria-label", "분류");
+  const t = document.createElement("input"); t.className = "grow"; t.value = it.text; t.setAttribute("aria-label", "업무");
+  const dd = document.createElement("input"); dd.type = "date"; dd.value = it.dueDate || ""; dd.setAttribute("aria-label", "기한(일)");
+  const tm = $("newtime").cloneNode(true); tm.removeAttribute("id"); tm.disabled = false; tm.value = it.dueTime || "";
+  const eodL = document.createElement("label"); eodL.className = "eod";
+  const eod = document.createElement("input"); eod.type = "checkbox"; eodL.append(eod, "E.O.D");
+  bindEod(tm, eod);
+  const wrap = document.createElement("span"); wrap.className = "tm"; wrap.append(tm, eodL);
+  const ok = document.createElement("button"); ok.className = "btn primary"; ok.textContent = "저장";
+  const no = document.createElement("button"); no.type = "button"; no.className = "btn ghost"; no.textContent = "취소";
+  no.onclick = () => { editId = null; render(); };
+  f.onkeydown = e => { if (e.key === "Escape") no.onclick(); };
+  f.onsubmit = e => {
+    e.preventDefault();
+    const v = t.value.trim(); if (!v) { t.focus(); return; }
+    Object.assign(it, { cat: cat.value, text: v, dueDate: dd.value, dueTime: tm.value });
+    editId = null; save();
+  };
+  f.append(cat, t, dd, wrap, ok, no);
+  setTimeout(() => t.focus());
+  return f;
+}
+
+// 순서 바꾸기: ⠿ 손잡이를 끌어서 위아래로
+$("list").ondragover = e => {
+  if (!dragLi) return;
+  e.preventDefault();
+  const over = e.target.closest("li");
+  if (!over || over === dragLi || over.classList.contains("empty")) return;
+  const r = over.getBoundingClientRect();
+  over.parentNode.insertBefore(dragLi, e.clientY < r.top + r.height / 2 ? over : over.nextSibling);
+};
+$("list").ondrop = e => e.preventDefault();
 
 function setStatus(t){ $("status").textContent = t; }
 
@@ -212,23 +265,36 @@ function render(){
   if (!tot) { const li = document.createElement("li"); li.className = "empty"; li.textContent = "아직 등록된 할 일이 없습니다."; ul.append(li); }
   state.items.forEach(it => {
     const li = document.createElement("li"); if (it.done) li.className = "done";
+    if (it.id === editId) { li.className = "edit"; li.append(editor(it)); ul.append(li); return; }
+    const grip = document.createElement("span"); grip.className = "grip"; grip.textContent = "⠿"; grip.title = "끌어서 순서 변경";
+    grip.draggable = true;
+    grip.ondragstart = e => { dragLi = li; li.dataset.id = it.id; li.classList.add("dragging"); e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("text/plain", it.id); e.dataTransfer.setDragImage(li, 10, 10); };
+    grip.ondragend = () => {
+      li.classList.remove("dragging"); dragLi = null;
+      const order = [...ul.children].map(n => n.dataset.id);
+      const next = order.map(id => state.items.find(i => i.id === id)).filter(Boolean);
+      if (next.length === state.items.length && next.some((i, k) => i !== state.items[k])) { state.items = next; save(); }
+    };
+    li.dataset.id = it.id;
     const cb = document.createElement("input"); cb.type = "checkbox"; cb.checked = it.done; cb.id = "cb-" + it.id;
     cb.onchange = () => { it.done = cb.checked; save(); };
     const t = document.createElement("span"); t.className = "t"; t.textContent = it.text;
     const cat = document.createElement("span"); cat.className = "cat"; cat.textContent = it.cat || "기타";
     const due = document.createElement("span"); due.className = "due";
-    const hh = it.dueTime ? it.dueTime.slice(0, 2) : "";
-    if (it.dueDate || hh) {
-      due.textContent = [it.dueDate ? it.dueDate.slice(5).replace("-", "/") : "", hh ? Number(hh) + "시" : ""].filter(Boolean).join(" ");
+    const eod = it.dueTime === "eod", hh = it.dueTime && !eod ? it.dueTime.slice(0, 2) : "";
+    if (it.dueDate || it.dueTime) {
+      due.textContent = [it.dueDate ? it.dueDate.slice(5).replace("-", "/") : "", eod ? "퇴근 전" : hh ? Number(hh) + "시" : ""].filter(Boolean).join(" ");
       const dl = (it.dueDate || cur) + "T" + (hh ? hh + ":59" : "23:59");
       if (!it.done && new Date(dl) < new Date()) due.classList.add("over");
     }
     const x = document.createElement("button"); x.className = "x"; x.textContent = "삭제"; x.setAttribute("aria-label", "삭제: " + it.text);
     x.onclick = () => { state.items = state.items.filter(i => i !== it); save(); };
+    const ed = document.createElement("button"); ed.className = "x"; ed.textContent = "수정"; ed.setAttribute("aria-label", "수정: " + it.text);
+    ed.onclick = () => { editId = it.id; render(); };
     const ck = document.createElement("label"); ck.className = "ck"; ck.htmlFor = cb.id;
     const ckt = document.createElement("span"); ckt.textContent = "완료";
     ck.append(ckt, cb);
-    li.append(cat, t, due, x, ck); ul.append(li);
+    li.append(grip, cat, t, due, ed, x, ck); ul.append(li);
   });
   if (document.activeElement !== $("memo")) $("memo").value = state.memo || "";
   renderHist();
@@ -271,7 +337,7 @@ function save(){
 async function go(day){
   if (dirty) await saving;
   clearTimeout(memoTimer);
-  cur = day;
+  cur = day; editId = null;
   state = { items: [], memo: "" };
   setStatus("불러오는 중…");
   render();
@@ -290,7 +356,7 @@ $("addform").onsubmit = e => {
   e.preventDefault();
   const v = $("newtask").value.trim(); if (!v) { $("newtask").focus(); return; }
   state.items.push({ id: newId(), cat: $("newcat").value, text: v, dueDate: $("newdate").value, dueTime: $("newtime").value, done: false });
-  $("newtask").value = ""; $("newtime").value = ""; save();
+  $("newtask").value = ""; $("newtime").value = ""; $("neweod").checked = false; $("neweod").onchange(); save();
 };
 $("memo").oninput = () => {
   state.memo = $("memo").value; dirty = true; setStatus("입력 중…");
