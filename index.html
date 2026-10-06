@@ -53,7 +53,19 @@ li .t{flex:1;min-width:0;overflow-wrap:anywhere}
 li.done .t{color:var(--done);text-decoration:line-through}
 li .x{border:0;background:none;color:var(--muted);cursor:pointer;padding:2px 6px;border-radius:6px}
 li .x:hover{color:var(--danger);background:var(--accent-soft)}
-.cat{flex:none;font-size:12px;font-weight:500;padding:2px 8px;border-radius:999px;background:var(--accent-soft);color:var(--accent);white-space:nowrap}
+.cat{flex:none;font-size:12px;font-weight:500;padding:2px 8px;border-radius:999px;background:var(--cb,var(--accent-soft));color:var(--cf,var(--accent));white-space:nowrap}
+.cat[data-c="정부사업"]{--cb:#e3f4ea;--cf:#1f7a4a}
+.cat[data-c="IR"]{--cb:#efe8fb;--cf:#6b3fc4}
+.cat[data-c="매출"]{--cb:#fdf0dc;--cf:#a85d00}
+.cat[data-c="기타"]{--cb:#eceef2;--cf:#5b6375}
+.cat[data-c="개인"]{--cb:#fbe7ee;--cf:#b8336a}
+@media (prefers-color-scheme:dark){
+  .cat[data-c="정부사업"]{--cb:#1c3328;--cf:#6fcf97}
+  .cat[data-c="IR"]{--cb:#2c2442;--cf:#b39af0}
+  .cat[data-c="매출"]{--cb:#3a2c17;--cf:#f2b45a}
+  .cat[data-c="기타"]{--cb:#262b36;--cf:#a3abbd}
+  .cat[data-c="개인"]{--cb:#3a2030;--cf:#f08cb4}
+}
 .due{flex:none;font-family:var(--mono);font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}
 .due.over{color:var(--danger)}
 .grip{flex:none;cursor:grab;color:var(--muted);user-select:none;padding:0 2px}
@@ -279,7 +291,7 @@ function render(){
     const cb = document.createElement("input"); cb.type = "checkbox"; cb.checked = it.done; cb.id = "cb-" + it.id;
     cb.onchange = () => { it.done = cb.checked; save(); };
     const t = document.createElement("span"); t.className = "t"; t.textContent = it.text;
-    const cat = document.createElement("span"); cat.className = "cat"; cat.textContent = it.cat || "기타";
+    const cat = document.createElement("span"); cat.className = "cat"; cat.textContent = cat.dataset.c = it.cat || "기타";
     const due = document.createElement("span"); due.className = "due";
     const eod = it.dueTime === "eod", hh = it.dueTime && !eod ? it.dueTime.slice(0, 2) : "";
     if (it.dueDate || it.dueTime) {
