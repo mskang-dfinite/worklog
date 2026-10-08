@@ -135,7 +135,9 @@ th.team:hover .tctl{display:flex}
 
 /* 편집 */
 .editing::after{display:none!important}
-.editor{display:block;width:100%;border:0;resize:none;background:#fff;color:inherit;outline:2px solid var(--accent);outline-offset:-2px;overflow:hidden;margin:0;user-select:text;-webkit-user-select:text;border-radius:0;font-family:inherit}
+.editor{display:block;width:100%;border:0;background:#fff;color:inherit;outline:2px solid var(--accent);outline-offset:-2px;margin:0;user-select:text;-webkit-user-select:text;border-radius:0;font-family:inherit;white-space:pre-wrap;word-break:keep-all;overflow-wrap:anywhere;cursor:text}
+.editor ::selection{background:rgba(47,91,211,.28)}
+.hd .editor{flex:1;min-width:0}
 .hd .editor,.team .editor{outline-offset:2px;border-radius:3px}
 
 /* 하단 상태줄 */
@@ -282,6 +284,7 @@ dialog kbd{font-family:inherit;font-size:12px;background:#f0f2f6;border:1px soli
     <tr><td>범위 선택</td><td>드래그 · <kbd>Shift</kbd>+클릭 · <kbd>Shift</kbd>+방향키</td></tr>
     <tr><td>추가 선택</td><td><kbd>Ctrl</kbd>(⌘)+클릭 / 드래그</td></tr>
     <tr><td>배경색 / 글자색 지정</td><td>칸 선택 후 상단 ‘배경’ / ‘글자’ 팔레트 클릭</td></tr>
+    <tr><td>일부 글자만 색 지정</td><td>더블클릭 편집 중 글자를 드래그로 선택 → ‘글자’ 팔레트 (‘글자색 지우기’는 선택 부분만 해제)</td></tr>
     <tr><td>내용 삭제</td><td><kbd>Delete</kbd> · <kbd>Backspace</kbd></td></tr>
     <tr><td>실행취소 / 다시실행</td><td><kbd>Ctrl</kbd>+<kbd>Z</kbd> / <kbd>Ctrl</kbd>+<kbd>Y</kbd></td></tr>
     <tr><td>복사 / 붙여넣기</td><td><kbd>Ctrl</kbd>+<kbd>C</kbd> / <kbd>Ctrl</kbd>+<kbd>V</kbd> (구글시트 범위 붙여넣기 가능)</td></tr>
@@ -336,7 +339,8 @@ function defaultState(){
     schedule: {},
     cells: { 't1|s1': DEFAULT_CELL },
     colors: {},
-    textColors: {}
+    textColors: {},
+    marks: {}
   };
 }
 
@@ -353,7 +357,7 @@ function normalize(s){
     dimPast: s.dimPast !== false,
     stages: s.stages.map(x => ({ id: fixId(x && x.id, 's'), name: String((x && x.name) ?? ''), tag: String((x && x.tag) ?? ''), width: clamp(num(x && x.width, 212), MIN_W, MAX_W) })),
     teams: s.teams.map(x => ({ id: fixId(x && x.id, 't'), name: String((x && x.name) ?? '') })),
-    schedule: {}, cells: {}, colors: {}, textColors: {}
+    schedule: {}, cells: {}, colors: {}, textColors: {}, marks: {}
   };
   const src = (o) => (o && typeof o === 'object') ? o : {};
   for (const [k, v] of Object.entries(src(s.schedule))) {
@@ -366,6 +370,11 @@ function normalize(s){
   for (const [k, v] of Object.entries(src(s.cells))) if (typeof v === 'string' && v) out.cells[k] = v;
   for (const [k, v] of Object.entries(src(s.colors))) if (isHex(v)) out.colors[k] = v;
   for (const [k, v] of Object.entries(src(s.textColors))) if (isHex(v)) out.textColors[k] = v;
+  for (const [k, v] of Object.entries(src(s.marks))) {
+    if (!Array.isArray(v)) continue;
+    const runs = cleanRuns(v.filter(x => Array.isArray(x) && Number.isInteger(x[0]) && Number.isInteger(x[1]) && isHex(x[2])), Infinity);
+    if (runs.length) out.marks[k] = runs;
+  }
   return out;
 }
 
@@ -451,6 +460,7 @@ function getText(r, c){
 }
 function setText(r, c, v){
   const x = ref(r, c); if (!x) return;
+  delete S.marks[x.ck];
   if (x.type === 'head') x.stage.name = v;
   else if (x.type === 'sched') { sched(x.stage.id).note = v; tidySched(x.stage.id); }
   else if (x.type === 'team') x.team.name = v;
@@ -497,13 +507,45 @@ function colorAttr(ck){
   return st.length ? ` style="${st.join(';')}"` : '';
 }
 // 조건에 맞는 색 키를 배경·글자색 양쪽에서 삭제
-function dropColors(pred){ for (const m of [S.colors, S.textColors]) for (const k of Object.keys(m)) if (pred(k)) delete m[k]; }
+function dropColors(pred){ for (const m of [S.colors, S.textColors, S.marks]) for (const k of Object.keys(m)) if (pred(k)) delete m[k]; }
 
 /* ── 렌더링 ── */
-function renderText(v){
-  if (!v) return '';
-  return v.split('\n').map(l => `<div class="ln${/^\s*[-•·*▪◦※]/.test(l) ? ' b' : ''}">${l ? esc(l) : '<br>'}</div>`).join('');
+/* 부분 글자색 구간 정리: 범위 자르기·정렬·빈 구간 제거·인접 같은 색 병합 */
+function cleanRuns(runs, len, dropColor){
+  const out = [];
+  runs.map(([a, b, c]) => [Math.max(0, a), Math.min(len, b), String(c).toLowerCase()])
+    .filter(([a, b, c]) => b > a && isHex(c) && c !== dropColor)
+    .sort((x, y) => x[0] - y[0])
+    .forEach(r => {
+      const last = out[out.length - 1];
+      if (last && r[0] < last[1]) r[0] = last[1];          // 겹침 제거
+      if (r[1] <= r[0]) return;
+      if (last && last[1] === r[0] && last[2] === r[2]) last[1] = r[1]; else out.push(r);
+    });
+  return out;
 }
+// text[a,b) 구간을 색 구간(runs)에 맞춰 span으로 감싼 HTML
+function segHtml(text, runs, a, b){
+  let out = '', pos = a;
+  for (const [s, e, c] of runs) {
+    const s2 = Math.max(s, pos), e2 = Math.min(e, b);
+    if (e2 <= s2) continue;
+    if (s2 > pos) out += esc(text.slice(pos, s2));
+    out += `<span style="color:${c}">${esc(text.slice(s2, e2))}</span>`;
+    pos = e2;
+  }
+  return pos < b ? out + esc(text.slice(pos, b)) : out;
+}
+function renderText(v, runs = []){
+  if (!v) return '';
+  let off = 0;
+  return v.split('\n').map(l => {
+    const h = l ? segHtml(v, runs, off, off + l.length) : '<br>';
+    off += l.length + 1;
+    return `<div class="ln${/^\s*[-•·*▪◦※]/.test(l) ? ' b' : ''}">${h}</div>`;
+  }).join('');
+}
+const marksOf = ck => S.marks[ck] || [];
 const CAL_ICON = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="3" width="12" height="11" rx="2"/><path d="M2 6.5h12M5.5 1.5v3M10.5 1.5v3"/></svg>';
 function tableWidth(){ return S.teamColWidth + S.stages.reduce((a, s) => a + s.width, 0) + Math.max(0, S.stages.length - 1) * ARROW_W; }
 
@@ -530,7 +572,7 @@ function render(){
   S.stages.forEach((s, i) => {
     const c = i + 1;
     h += `<th class="hd cell" data-r="0" data-c="${c}" data-vc="${2 * c - 1}"${colorAttr('h:' + s.id)}>`
-      + `<div class="h-top"><span class="num">${c}</span><div class="txt">${renderText(s.name)}</div></div>`
+      + `<div class="h-top"><span class="num">${c}</span><div class="txt">${renderText(s.name, marksOf('h:' + s.id))}</div></div>`
       + `<div class="h-meta"></div><span class="rz" data-rz="${i}" title="드래그하여 너비 조절"></span></th>`;
     if (i < n - 1) h += `<th class="hd arrow" data-r="0" data-vc="${2 * c}">▶</th>`;
   });
@@ -545,7 +587,7 @@ function render(){
       + `<input type="date" class="due-inp" max="2099-12-31" tabindex="-1" aria-label="기한" data-sid="${esc(s.id)}" value="${x.due || ''}">`
       + `<button type="button" class="due-btn${x.due ? '' : ' empty'}" data-sid="${esc(s.id)}" title="${x.due ? '기한 ' + x.due + ' · 클릭하여 변경' : '클릭하여 기한 선택'}">${CAL_ICON}${x.due ? fmtDue(x.due) : '날짜 선택'}</button>`
       + (x.due ? `<button type="button" class="due-clr" data-sid="${esc(s.id)}" title="기한 지우기">✕</button>` : '')
-      + `</div><div class="dprint"></div><div class="txt">${renderText(x.note || '')}</div></td>`;
+      + `</div><div class="dprint"></div><div class="txt">${renderText(x.note || '', marksOf('s:' + s.id))}</div></td>`;
     if (i < n - 1) h += `<td class="arrow" data-r="1" data-vc="${2 * c}"></td>`;
   });
   h += '</tr>';
@@ -554,14 +596,14 @@ function render(){
   S.teams.forEach((t, ti) => {
     const r = ti + 2;
     h += `<tr class="trow"><th class="cell team sticky-l" data-r="${r}" data-c="0" data-vc="0"${colorAttr('t:' + t.id)}>`
-      + `<div class="txt">${renderText(t.name)}</div>`
+      + `<div class="txt">${renderText(t.name, marksOf('t:' + t.id))}</div>`
       + `<div class="tctl"><button data-act="up" data-ti="${ti}" title="위로 이동"${ti === 0 ? ' disabled' : ''}>▲</button>`
       + `<button data-act="down" data-ti="${ti}" title="아래로 이동"${ti === S.teams.length - 1 ? ' disabled' : ''}>▼</button>`
       + `<button data-act="add" data-ti="${ti}" title="아래에 팀 추가">＋</button>`
       + `<button data-act="del" data-ti="${ti}" class="del" title="팀 삭제">✕</button></div></th>`;
     S.stages.forEach((s, i) => {
       const c = i + 1, tk = t.id + '|' + s.id;
-      h += `<td class="cell body" data-r="${r}" data-c="${c}" data-vc="${2 * c - 1}"${colorAttr('c:' + tk)}><div class="txt">${renderText(S.cells[tk] || '')}</div></td>`;
+      h += `<td class="cell body" data-r="${r}" data-c="${c}" data-vc="${2 * c - 1}"${colorAttr('c:' + tk)}><div class="txt">${renderText(S.cells[tk] || '', marksOf('c:' + tk))}</div></td>`;
       if (i < n - 1) h += `<td class="arrow" data-r="${r}" data-vc="${2 * c}"></td>`;
     });
     h += '</tr>';
@@ -636,40 +678,111 @@ function selectOne(p){ anchor = cursor = p; sel = new Set([key(p.r, p.c)]); rend
 function clearSel(){ sel = new Set(); anchor = cursor = null; renderSelection(); }
 
 /* ── 편집 ── */
+/* 편집기는 contenteditable: 글자를 드래그로 골라 '글자' 팔레트를 누르면 그 부분만 색이 바뀜 */
+function rgbToHex(v){
+  if (isHex(v)) return v.toLowerCase();
+  const m = /rgba?\((\d+),\s*(\d+),\s*(\d+)/.exec(v || '');
+  return m ? '#' + m.slice(1, 4).map(n => (+n).toString(16).padStart(2, '0')).join('') : null;
+}
+// 편집기 DOM → 평문 + 색 구간
+function readEditor(root){
+  let text = '';
+  const runs = [];
+  const push = (t, color) => {
+    if (!t) return;
+    const a = text.length;
+    text += t;
+    if (color) runs.push([a, text.length, color]);
+  };
+  const walk = (node, color) => {
+    for (const ch of node.childNodes) {
+      if (ch.nodeType === 3) push(ch.nodeValue.replace(/ /g, ' ').replace(/​/g, ''), color);
+      else if (ch.nodeName === 'BR') push('\n', null);
+      else if (ch.nodeType === 1) {
+        if (/^(DIV|P|LI)$/.test(ch.nodeName) && text && !text.endsWith('\n')) push('\n', null);
+        const c = rgbToHex(ch.style && ch.style.color) || (ch.nodeName === 'FONT' && rgbToHex(ch.getAttribute('color'))) || color;
+        walk(ch, c);
+      }
+    }
+  };
+  walk(root, null);
+  return { text, runs };
+}
+function editorHtml(text, runs){
+  const h = segHtml(text, runs, 0, text.length).replace(/\n/g, '<br>');
+  return text.endsWith('\n') ? h + '<br>' : h;
+}
+let editHintShown = false;
 function startEdit(r, c, selectAll){
   if (!selectable(r, c)) return;
   if (editing) finishEdit(true);
   const el = cellEl(r, c); if (!el) return;
   const txt = el.querySelector('.txt'); if (!txt) return;
+  const x = ref(r, c);
   const cs = getComputedStyle(txt);
-  const ta = document.createElement('textarea');
-  ta.className = 'editor';
-  ta.value = getText(r, c);
-  ta.spellcheck = false;
-  Object.assign(ta.style, { padding: cs.padding, fontSize: cs.fontSize, fontWeight: cs.fontWeight, lineHeight: cs.lineHeight, letterSpacing: cs.letterSpacing, minHeight: Math.max(txt.offsetHeight, parseFloat(cs.lineHeight) || 20) + 'px' });
-  txt.replaceWith(ta);
+  const ed = document.createElement('div');
+  ed.className = 'editor';
+  ed.contentEditable = 'true';
+  ed.spellcheck = false;
+  const text = getText(r, c), runs = marksOf(x.ck).map(m => m.slice());
+  ed.innerHTML = editorHtml(text, runs);
+  Object.assign(ed.style, { padding: cs.padding, fontSize: cs.fontSize, fontWeight: cs.fontWeight, lineHeight: cs.lineHeight, letterSpacing: cs.letterSpacing, minHeight: Math.max(txt.offsetHeight, parseFloat(cs.lineHeight) || 20) + 'px' });
+  txt.replaceWith(ed);
   el.classList.add('editing');
-  editing = { r, c, ta, orig: ta.value };
-  const fit = () => { ta.style.height = 'auto'; ta.style.height = ta.scrollHeight + 'px'; };
-  fit();
-  ta.addEventListener('input', fit);
-  ta.addEventListener('keydown', e => {
+  editing = { r, c, el: ed, ck: x.ck, orig: text, origRuns: JSON.stringify(runs), baseColor: rgbToHex(getComputedStyle(ed).color), range: null };
+  ed.addEventListener('keydown', e => {
+    const mod = e.ctrlKey || e.metaKey;
     if (e.key === 'Escape' && !e.isComposing) { e.preventDefault(); finishEdit(true); }
-    else if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); finishEdit(true); }
+    else if (e.key === 'Enter' && mod) { e.preventDefault(); finishEdit(true); }
+    else if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); document.execCommand('insertLineBreak'); }
+    else if (mod && /^[biu]$/i.test(e.key)) e.preventDefault();          // 굵게·기울임 등 서식은 쓰지 않음
     e.stopPropagation();
   });
-  ta.addEventListener('blur', () => { if (editing && editing.ta === ta) finishEdit(true); });
-  ta.focus();
-  if (selectAll) ta.select(); else ta.setSelectionRange(ta.value.length, ta.value.length);
+  ed.addEventListener('paste', e => {                                       // 붙여넣기는 평문으로
+    e.preventDefault(); e.stopPropagation();
+    const t = (e.clipboardData.getData('text/plain') || '').replace(/\r\n?/g, '\n');
+    t.split('\n').forEach((line, i) => { if (i) document.execCommand('insertLineBreak'); if (line) document.execCommand('insertText', false, line); });
+  });
+  ed.addEventListener('drop', e => e.preventDefault());
+  ed.addEventListener('blur', e => {
+    if (!editing || editing.el !== ed) return;
+    const to = e.relatedTarget;
+    if (to && to.closest && to.closest('.palette')) return;                 // 사용자 지정 색 선택 중에는 편집 유지
+    finishEdit(true);
+  });
+  ed.focus();
+  const sl = getSelection(), rg = document.createRange();
+  rg.selectNodeContents(ed);
+  if (!selectAll) rg.collapse(false);
+  sl.removeAllRanges(); sl.addRange(rg);
   selectOne({ r, c });
+  if (!editHintShown) { editHintShown = true; toast('글자를 드래그로 선택한 뒤 ‘글자’ 팔레트를 누르면 그 부분만 색이 바뀝니다'); }
+}
+document.addEventListener('selectionchange', () => {
+  if (!editing) return;
+  const sl = getSelection();
+  if (sl.rangeCount && editing.el.contains(sl.anchorNode)) editing.range = sl.getRangeAt(0).cloneRange();
+});
+// 편집 중 선택한 글자에만 글자색 적용(null이면 부분 색 제거). 선택이 없으면 false
+function applyInlineColor(color){
+  const ed = editing.el, rg = editing.range;
+  if (!rg || rg.collapsed || !ed.contains(rg.commonAncestorContainer)) return false;
+  ed.focus();
+  const sl = getSelection(); sl.removeAllRanges(); sl.addRange(rg);
+  document.execCommand('styleWithCSS', false, true);
+  document.execCommand(color ? 'foreColor' : 'removeFormat', false, color || undefined);
+  return true;
 }
 function finishEdit(saveIt){
   if (!editing) return;
-  const { r, c, ta, orig } = editing;
+  const { r, c, el: ed, ck, orig, origRuns, baseColor } = editing;
   editing = null;
-  const v = ta.value.replace(/\s+$/, '');
-  if (saveIt && v !== orig) commit(() => setText(r, c, v));
-  else render();
+  const read = readEditor(ed);
+  const v = read.text.replace(/\s+$/, '');
+  const runs = cleanRuns(read.runs, v.length, baseColor);   // 기본 글자색과 같은 구간은 저장하지 않음
+  if (saveIt && (v !== orig || JSON.stringify(runs) !== origRuns)) {
+    commit(() => { setText(r, c, v); if (runs.length) S.marks[ck] = runs; });
+  } else render();
 }
 
 function editTitle(){
@@ -713,14 +826,18 @@ function editTag(i){
 function forSelected(fn){ for (const k of sel) { const [r, c] = parseKey(k); const x = ref(r, c); if (x) fn(x, r, c); } }
 function needSel(){ if (sel.size) return true; toast('먼저 칸을 선택하세요 (클릭 또는 드래그)'); return false; }
 function applyColor(color, kind = 'bg'){
+  if (editing && kind === 'fg' && applyInlineColor(color)) return;   // 편집 중 글자 선택 → 그 부분만
   if (editing) finishEdit(true);
   if (!needSel()) return;
   const m = S[COLOR_MAP[kind]];
-  commit(() => forSelected(x => { if (color) m[x.ck] = color; else delete m[x.ck]; }));
+  commit(() => forSelected(x => {
+    if (color) m[x.ck] = color; else delete m[x.ck];
+    if (kind === 'fg') delete S.marks[x.ck];                            // 칸 전체 글자색은 부분 색을 덮어씀
+  }));
 }
 function clearContents(){
   if (!sel.size) return;
-  commit(() => forSelected((x, r, c) => { if (x.type === 'sched') delete S.schedule[x.stage.id]; else setText(r, c, ''); }));
+  commit(() => forSelected((x, r, c) => { if (x.type === 'sched') { delete S.schedule[x.stage.id]; delete S.marks[x.ck]; } else setText(r, c, ''); }));
 }
 function addTeam(at){
   const t = { id: uid('t'), name: '새 팀' };
@@ -825,7 +942,7 @@ board.addEventListener('mousedown', e => {
   if (e.button !== 0) return;
   const rz = e.target.closest('.rz');
   if (rz) { if (editing) finishEdit(true); startResize(e, +rz.dataset.rz); return; }
-  if (editing && editing.ta === e.target) return;
+  if (editing && editing.el.contains(e.target)) return;
   if (e.target.closest('input,textarea,button')) return;
   const td = e.target.closest('[data-c]');
   const p = td ? { r: +td.dataset.r, c: +td.dataset.c } : null;
@@ -875,6 +992,7 @@ function autoScroll(){
   requestAnimationFrame(autoScroll);
 }
 board.addEventListener('dblclick', e => {
+  if (editing && editing.el.contains(e.target)) return;
   if (e.target.closest('input,textarea,button,.rz')) return;
   const lab = e.target.closest('th.lab[data-lab]');
   if (lab) { editTag(+lab.dataset.lab); return; }
@@ -946,6 +1064,7 @@ board.addEventListener('contextmenu', e => {
   const td = e.target.closest('[data-c]');
   const lab = e.target.closest('th.lab[data-lab]');
   if (!td && !lab) return;
+  if (editing && editing.el.contains(e.target)) return;
   e.preventDefault();
   if (editing) finishEdit(true);
   if (lab) {
@@ -1067,6 +1186,7 @@ document.querySelectorAll('.palette').forEach(g => {
   const kind = g.dataset.kind;
   g.querySelector('.swatches').innerHTML = (kind === 'fg' ? TEXT_PALETTE : PALETTE).map(([c, n]) => swatchHtml(kind, c, n)).join('');
   renderRecent(kind);
+  g.addEventListener('mousedown', e => { if (editing && e.target.closest('.sw,.clearColor,.custom')) e.preventDefault(); });
   g.addEventListener('click', e => { const b = e.target.closest('.sw'); if (b) applyColor(b.dataset.color, kind); });
   g.querySelector('.customColor').addEventListener('change', e => { const c = e.target.value; if (!isHex(c)) return; addRecent(kind, c); applyColor(c, kind); });
   g.querySelector('.clearColor').addEventListener('click', () => applyColor(null, kind));
