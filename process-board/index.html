@@ -1,0 +1,1345 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<title>프로세스 보드</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect x='4' y='8' width='56' height='48' rx='7' fill='%23fff' stroke='%232f5bd3' stroke-width='4'/%3E%3Crect x='4' y='8' width='56' height='13' rx='6' fill='%23ffe08a'/%3E%3Cpath d='M22 21v35M42 21v35M4 38h56' stroke='%232f5bd3' stroke-width='3'/%3E%3Cpath d='M29 11l6 4-6 4z' fill='%23e03131'/%3E%3C/svg%3E">
+<style>
+:root{
+  color-scheme:light;
+  --bg:#f2f3f6; --paper:#fff; --ink:#1f2633; --muted:#6b7385; --faint:#aab0bb;
+  --line:#e0e3e9; --grid:#d6dae1; --grid-strong:#a9b0bc;
+  --accent:#2f5bd3; --accent-soft:#e8eefc;
+  --hdr:#fff2cc; --hdr-line:#c8b46e; --hdr-now:#ffe17a;
+  --arrow:#e03131; --team:#f7f8fa;
+  --now-line:rgba(47,91,211,.6);
+  --labH:30px;
+  --font:"Pretendard Variable",Pretendard,-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Malgun Gothic","맑은 고딕","Noto Sans KR",system-ui,sans-serif;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font);font-size:14px;display:flex;flex-direction:column;-webkit-font-smoothing:antialiased}
+body.resizing,body.resizing *{cursor:col-resize!important;user-select:none}
+button,input,textarea{font:inherit;color:inherit}
+[hidden]{display:none!important}
+
+/* ── 상단 ── */
+.top{background:var(--paper);border-bottom:1px solid var(--line);padding:12px 16px 10px;display:flex;flex-direction:column;gap:10px}
+.title-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;min-height:34px}
+#title{margin:0 0 0 -6px;padding:2px 6px;font-size:20px;font-weight:800;letter-spacing:-.02em;border-radius:7px;cursor:text}
+#title:hover{background:#f0f2f6}
+.title-input{font-size:20px;font-weight:800;letter-spacing:-.02em;border:0;outline:2px solid var(--accent);border-radius:7px;padding:2px 6px;margin-left:-6px;min-width:min(520px,100%)}
+.today-chip{font-size:12.5px;color:var(--muted);background:#f0f2f6;border-radius:999px;padding:3px 10px;font-variant-numeric:tabular-nums}
+.saved{margin-left:auto;font-size:12px;color:var(--faint)}
+.saved.err{color:#c92a2a}
+.toolbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.group{display:flex;align-items:center;gap:3px;padding:3px;border:1px solid var(--line);border-radius:10px;background:#fafbfc}
+.group .lbl{font-size:12px;color:var(--muted);padding:0 4px 0 6px}
+.btn{height:30px;padding:0 10px;border:0;background:transparent;border-radius:7px;display:inline-flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;white-space:nowrap}
+.btn:hover{background:#e9ecf2}
+.btn:disabled{opacity:.35;cursor:default;background:transparent}
+.btn svg{width:16px;height:16px;flex:none}
+.btn.icon{padding:0 7px}
+.sw{width:22px;height:22px;border-radius:6px;border:1px solid rgba(0,0,0,.13);cursor:pointer;padding:0;transition:transform .08s}
+.sw:hover{transform:scale(1.15)}
+.sw.fg{background:#fff;font-size:13px;font-weight:800;line-height:20px;text-align:center}
+.custom{position:relative;width:22px;height:22px;border-radius:50%;cursor:pointer;background:conic-gradient(#ff8787,#ffd43b,#69db7c,#4dabf7,#9775fa,#f783ac,#ff8787);border:2px solid #fff;box-shadow:0 0 0 1px rgba(0,0,0,.15);margin:0 2px}
+.custom.fg::after{content:"가";position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:#fff;text-shadow:0 0 2px rgba(0,0,0,.6);pointer-events:none}
+.custom input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;border:0;padding:0}
+.sep{width:1px;height:18px;background:var(--line);margin:0 3px}
+.chk{display:inline-flex;align-items:center;gap:5px;font-size:13px;padding:0 8px;height:30px;cursor:pointer;user-select:none}
+.chk input{accent-color:var(--accent);margin:0}
+:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+
+/* ── 보드 ── */
+.board{flex:1;min-height:0;overflow:auto;margin:12px 16px 0;background:var(--paper);border:1px solid var(--line);border-bottom:0;border-radius:12px 12px 0 0;overscroll-behavior:contain;user-select:none;-webkit-user-select:none}
+#grid{border-collapse:separate;border-spacing:0;table-layout:fixed}
+#grid th,#grid td{border-right:1px solid var(--grid);border-bottom:1px solid var(--grid);padding:0;vertical-align:top;position:relative;background:var(--paper);text-align:left;font-weight:400}
+.sticky-l{position:sticky!important;left:0;z-index:2}
+#grid .sticky-l{border-right:1px solid var(--grid-strong);box-shadow:3px 0 6px -4px rgba(20,30,50,.25)}
+
+/* 라벨 행 */
+#grid th.lab{position:sticky;top:0;z-index:3;height:var(--labH);border-right:0;border-bottom:0;vertical-align:bottom;text-align:center;padding:0 4px 4px}
+#grid th.lab.corner{z-index:6}
+.tag{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;font-weight:700;color:#c92a2a;background:#fff0f0;border:1px solid #ffc9c9;border-radius:999px;padding:2px 10px;cursor:text;white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis}
+.tag::after{content:"▼";font-size:7px}
+.tag-add{font-size:11px;color:transparent;cursor:pointer;padding:2px 8px;border-radius:999px;border:1px dashed transparent}
+th.lab:hover .tag-add{color:var(--faint);border-color:var(--line)}
+.tag-input{width:100%;font-size:12px;font-weight:600;border:0;outline:2px solid var(--accent);border-radius:6px;padding:3px 6px;text-align:center}
+
+/* 헤더 행 */
+#grid th.hd{position:sticky;top:var(--labH);z-index:3;background:var(--hdr);border-top:1px solid var(--hdr-line);border-bottom:2px solid var(--hdr-line);border-right-color:var(--hdr-line);padding:5px 8px;vertical-align:top}
+#grid th.hd.corner{z-index:6;background:#fbf6e4;vertical-align:middle;font-size:12px;color:var(--muted);font-weight:600;border-right:1px solid var(--grid-strong)}
+.corner .diag{position:absolute;inset:0;pointer-events:none}
+.corner .diag svg{position:absolute;inset:0;width:100%;height:100%;color:var(--grid-strong)}
+.corner .diag span{position:absolute;font-size:12px;font-weight:700;line-height:1.2}
+.corner .diag .diag-team{left:12px;bottom:10px}
+.corner .diag .diag-stage{right:12px;top:10px}
+#grid th.hd.arrow{background:var(--paper);border-left:0;text-align:center;vertical-align:middle;color:var(--arrow);font-size:13px;padding:0;border-right-color:var(--hdr-line)}
+.h-top{display:flex;gap:7px;align-items:flex-start}
+.num{flex:none;min-width:20px;height:20px;border-radius:999px;border:1.5px solid currentColor;font-size:11px;font-weight:800;display:inline-flex;align-items:center;justify-content:center;opacity:.55;margin-top:1px;padding:0 4px}
+#grid .hd .txt{padding:0;font-size:13.5px;font-weight:800;line-height:1.3;letter-spacing:-.01em;word-break:keep-all;overflow-wrap:anywhere;min-height:20px;flex:1;min-width:0}
+.h-meta{display:flex;flex-wrap:wrap;align-items:center;gap:3px 5px;margin-top:3px;font-size:11.5px;font-variant-numeric:tabular-nums;min-height:17px}
+.h-meta .rng{opacity:.75;font-weight:600}
+.chip{font-size:11px;font-weight:700;border-radius:999px;padding:1px 8px;line-height:17px;white-space:nowrap}
+.chip.now{background:var(--accent);color:#fff}
+.chip.todo{background:#fff;color:#8a6200;border:1px solid #e9d27a;line-height:15px}
+.chip.past{background:#e3e5ea;color:#69707d}
+.chip.none{color:#a49770;font-weight:500;padding:0}
+.rz{position:absolute;top:0;right:-1px;width:7px;height:100%;cursor:col-resize;z-index:4}
+.rz:hover{background:rgba(47,91,211,.3)}
+
+/* 상태 표시 */
+#grid th.hd.col-now{background:var(--hdr-now);box-shadow:inset 0 4px 0 var(--accent),inset 2px 0 0 var(--now-line),inset -2px 0 0 var(--now-line)}
+#grid td.col-now{box-shadow:inset 2px 0 0 var(--now-line),inset -2px 0 0 var(--now-line)}
+.dim #grid th.hd.col-past{background:#efefeb}
+.dim #grid th.hd.col-past>*:not(.rz){opacity:.5}
+.dim #grid td.col-past{filter:saturate(.35)}
+.dim #grid td.col-past>*:not(.editor){opacity:.5}
+
+/* 일정 행 */
+#grid th.rowhead{background:#fafbfd;vertical-align:middle;padding:5px 12px;font-weight:800;font-size:13.5px}
+.rowhead small{display:block;font-size:11px;font-weight:500;color:var(--muted);margin-top:2px}
+#grid td.sched{background:#fcfdff}
+.due{position:relative;display:flex;align-items:center;gap:5px;padding:5px 8px;font-size:11.5px;color:var(--muted)}
+.due-btn{flex:1;min-width:0;height:26px;display:inline-flex;align-items:center;gap:6px;padding:0 9px;border:1px solid var(--line);border-radius:7px;background:#fff;color:var(--ink);font-size:13.5px;font-weight:700;font-variant-numeric:tabular-nums;cursor:pointer;text-align:left;white-space:nowrap}
+.due-btn:hover{border-color:#b8c3dd;background:#f7f9fd}
+.due-btn svg{width:14px;height:14px;flex:none;color:var(--muted)}
+.due-btn.empty{color:var(--faint);font-weight:500;font-size:12.5px}
+.due-inp{position:absolute;left:8px;right:8px;top:5px;height:26px;opacity:0;pointer-events:none;border:0;padding:0;margin:0}
+.due-clr{flex:none;width:22px;height:22px;border:0;border-radius:6px;background:none;color:var(--faint);cursor:pointer;font-size:11px;padding:0}
+.due-clr:hover{background:#ffe3e3;color:#c92a2a}
+.dprint{display:none}
+#grid td.sched{vertical-align:middle}
+
+/* 팀/본문 */
+#grid th.team{background:var(--team);vertical-align:middle}
+#grid .team .txt{padding:12px 12px;font-size:14px;font-weight:800;line-height:1.45;word-break:keep-all;overflow-wrap:anywhere}
+#grid td.body{height:84px}
+.cell .txt{user-select:text;-webkit-user-select:text;cursor:text;padding:9px 11px;font-size:13.5px;line-height:1.6;word-break:keep-all;overflow-wrap:anywhere}
+.ln.b{padding-left:.7em;text-indent:-.7em}
+#grid td.arrow{background:#fcfcfd;border-right-color:var(--grid)}
+.tctl{position:absolute;top:3px;right:3px;display:none;gap:1px;z-index:5;background:rgba(255,255,255,.95);border:1px solid var(--line);border-radius:7px;padding:1px;box-shadow:0 2px 6px rgba(20,30,50,.1)}
+th.team:hover .tctl{display:flex}
+.tctl button{width:21px;height:21px;border:0;background:none;border-radius:5px;cursor:pointer;font-size:11px;color:var(--muted);display:inline-flex;align-items:center;justify-content:center;padding:0}
+.tctl button:hover{background:#e9ecf2;color:var(--ink)}
+.tctl button.del:hover{background:#ffe3e3;color:#c92a2a}
+.addrow td,.addrow th{border-bottom:0!important;border-right:0!important;background:transparent!important}
+.addteam{margin:8px 10px;height:30px;padding:0 12px;border:1px dashed var(--grid-strong);border-radius:8px;background:#fff;color:var(--muted);cursor:pointer;font-size:12.5px;white-space:nowrap}
+.addteam:hover{border-color:var(--accent);color:var(--accent);background:var(--accent-soft)}
+
+/* 선택 */
+.sel::after{content:"";position:absolute;inset:0;background:rgba(47,91,211,.11);pointer-events:none;z-index:1;border:0 solid var(--accent)}
+.sel.cur::after{background:rgba(47,91,211,.05)}
+.sel.et::after{border-top-width:2px}.sel.eb::after{border-bottom-width:2px}.sel.el::after{border-left-width:2px}.sel.er::after{border-right-width:2px}
+.cur{outline:none}
+
+/* 편집 */
+.editing::after{display:none!important}
+.editor{display:block;width:100%;border:0;resize:none;background:#fff;color:inherit;outline:2px solid var(--accent);outline-offset:-2px;overflow:hidden;margin:0;user-select:text;-webkit-user-select:text;border-radius:0;font-family:inherit}
+.hd .editor,.team .editor{outline-offset:2px;border-radius:3px}
+
+/* 하단 상태줄 */
+.statusbar{display:flex;flex-wrap:wrap;gap:6px 16px;align-items:center;padding:7px 14px;margin:0 16px 12px;background:var(--paper);border:1px solid var(--line);border-radius:0 0 12px 12px;font-size:12px;color:var(--muted)}
+.legend{display:flex;gap:12px;align-items:center}
+.legend span{display:inline-flex;align-items:center;gap:5px}
+.legend i{width:12px;height:12px;border-radius:3px;display:inline-block}
+.statusbar .hint{margin-left:auto;color:var(--faint)}
+.selinfo{font-weight:600;color:var(--accent);min-width:60px}
+
+/* 메뉴·대화상자·토스트 */
+.menu{position:fixed;z-index:100;background:#fff;border:1px solid var(--line);border-radius:10px;box-shadow:0 12px 32px rgba(20,30,50,.18);padding:5px;min-width:200px}
+.menu button{display:flex;width:100%;justify-content:space-between;gap:16px;border:0;background:none;padding:7px 10px;border-radius:6px;cursor:pointer;font-size:13px;text-align:left}
+.menu button:hover{background:var(--accent-soft)}
+.menu button.danger{color:#c92a2a}
+.menu button.danger:hover{background:#fff0f0}
+.menu kbd{font-family:inherit;font-size:11.5px;color:var(--faint)}
+.menu hr{border:0;border-top:1px solid var(--line);margin:4px 2px}
+dialog{border:0;border-radius:14px;padding:22px 24px;max-width:560px;width:calc(100% - 32px);box-shadow:0 20px 50px rgba(20,30,50,.25);color:var(--ink)}
+dialog::backdrop{background:rgba(20,26,40,.35)}
+dialog h2{margin:0 0 12px;font-size:17px}
+dialog table{border-collapse:collapse;width:100%;font-size:13px}
+dialog td{padding:5px 4px;border-bottom:1px solid var(--line);vertical-align:top}
+dialog td:first-child{white-space:nowrap;color:var(--muted);width:42%}
+dialog kbd{font-family:inherit;font-size:12px;background:#f0f2f6;border:1px solid var(--line);border-bottom-width:2px;border-radius:5px;padding:0 5px}
+.dlg-foot{display:flex;justify-content:space-between;gap:8px;margin-top:16px}
+.dlg-foot .btn{border:1px solid var(--line)}
+.dlg-foot .btn.danger{color:#c92a2a}
+#toast{position:fixed;left:50%;bottom:56px;transform:translateX(-50%) translateY(10px);background:#1f2633;color:#fff;font-size:13px;padding:8px 14px;border-radius:9px;opacity:0;pointer-events:none;transition:.18s;z-index:200}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.flash{animation:flash 1.2s ease}
+@keyframes flash{0%,40%{box-shadow:inset 0 0 0 3px var(--accent)}}
+
+@media (max-width:700px){
+  .top{padding:10px 12px}
+  .board,.statusbar{margin-left:8px;margin-right:8px}
+  .statusbar .hint{display:none}
+}
+
+/* ── 인쇄 (A3 가로) ── */
+@page{size:A3 landscape;margin:8mm}
+@media print{
+  *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  html,body{height:auto;display:block;background:#fff}
+  .toolbar,.statusbar,.saved,.tctl,.rz,.tag-add,.addrow,#toast,.menu,dialog{display:none!important}
+  .top{border:0;padding:0 0 6px}
+  #title{font-size:15pt;margin:0;padding:0}
+  .today-chip{background:none;padding:0;font-size:9pt}
+  .board{overflow:visible;border:0;margin:0;border-radius:0;height:auto}
+  #grid{width:100%!important}
+  #grid col{width:auto!important}
+  #grid col.arrowcol{width:14px!important}
+  #grid col.teamcol{width:82px!important}
+  #grid th,#grid td{position:static!important;box-shadow:none!important}
+  #grid th.lab{height:auto;padding:0 2px 2px}
+  .sel::after{display:none!important}
+  .tag{font-size:7pt;padding:0 6px}
+  #grid th.hd{padding:5px 5px 4px}
+  #grid .hd .txt{font-size:8.5pt}
+  .num{min-width:14px;height:14px;font-size:7pt;padding:0 2px}
+  .h-meta{font-size:7pt;margin-top:3px;min-height:0}
+  .chip{font-size:7pt;padding:0 5px;line-height:12px}
+  .chip.none{display:none}
+  .due{display:none}
+  .dprint{display:block;padding:4px 5px 0;font-size:7.5pt;font-weight:600}
+  #grid .sched .txt{min-height:0}
+  .sched .txt:empty::before{content:none}
+  #grid td.cell .txt{font-size:8pt;line-height:1.45;padding:4px 5px}
+  #grid .team .txt{font-size:9pt;padding:6px}
+  #grid th.rowhead{padding:5px 6px;font-size:8.5pt}
+  #grid td.body{height:auto}
+  tr{break-inside:avoid}
+}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="title-row">
+    <h1 id="title" title="더블클릭하여 제목 수정"></h1>
+    <span class="today-chip" id="today"></span>
+    <span class="saved" id="saved"></span>
+  </div>
+  <div class="toolbar">
+    <div class="group palette" data-kind="bg" aria-label="배경색">
+      <span class="lbl">배경</span>
+      <span class="swatches" style="display:contents"></span>
+      <span class="sep"></span>
+      <span class="recent" style="display:contents"></span>
+      <label class="custom" title="사용자 지정 배경색"><input type="color" class="customColor" value="#ffd8a8"></label>
+      <button class="btn clearColor" title="선택 칸 배경색 지우기">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="2.5" y="2.5" width="11" height="11" rx="2"/><path d="M3 13L13 3"/></svg>배경 지우기</button>
+    </div>
+    <div class="group palette" data-kind="fg" aria-label="글자색">
+      <span class="lbl">글자</span>
+      <span class="swatches" style="display:contents"></span>
+      <span class="sep"></span>
+      <span class="recent" style="display:contents"></span>
+      <label class="custom fg" title="사용자 지정 글자색"><input type="color" class="customColor" value="#1971c2"></label>
+      <button class="btn clearColor" title="선택 칸 글자색 지우기 (배경에 맞춰 자동)">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M4 13L8 3l4 10M5.6 9h4.8"/><path d="M2.5 14.5L13.5 1.5" stroke-width="1.3"/></svg>글자색 지우기</button>
+    </div>
+    <div class="group">
+      <button class="btn icon" id="undo" title="실행취소 (Ctrl+Z)"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M5.5 3.5L2.5 6.5l3 3"/><path d="M2.5 6.5h7a4 4 0 010 8H7"/></svg></button>
+      <button class="btn icon" id="redo" title="다시실행 (Ctrl+Y)"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M10.5 3.5l3 3-3 3"/><path d="M13.5 6.5h-7a4 4 0 000 8H9"/></svg></button>
+    </div>
+    <div class="group">
+      <button class="btn" id="addTeam"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M8 3v10M3 8h10"/></svg>팀 추가</button>
+      <button class="btn" id="gotoNow" title="진행중인 단계로 이동"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="8" cy="8" r="5.5"/><circle cx="8" cy="8" r="1.8" fill="currentColor"/></svg>진행 단계로</button>
+      <label class="chk"><input type="checkbox" id="dimPast">지난 단계 흐리게</label>
+    </div>
+    <div class="group">
+      <button class="btn" id="exportBtn" title="JSON 파일로 내보내기"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2.5v8M4.5 7L8 10.5 11.5 7"/><path d="M2.5 11.5v2h11v-2"/></svg>내보내기</button>
+      <button class="btn" id="importBtn" title="JSON 파일 불러오기"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M8 10.5v-8M4.5 6L8 2.5 11.5 6"/><path d="M2.5 11.5v2h11v-2"/></svg>불러오기</button>
+      <input type="file" id="fileInput" accept=".json,application/json" hidden>
+      <button class="btn" id="printBtn" title="인쇄 (A3 가로)"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><path d="M4.5 6V2.5h7V6"/><rect x="2" y="6" width="12" height="5.5" rx="1.2"/><path d="M4.5 9.5h7v4h-7z" fill="#fff"/></svg>인쇄</button>
+    </div>
+    <div class="group">
+      <button class="btn icon" id="helpBtn" title="사용법"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="8" cy="8" r="6"/><path d="M6.3 6.2a1.8 1.8 0 113 1.4c-.7.4-1.3.8-1.3 1.6"/><circle cx="8" cy="11.4" r=".5" fill="currentColor"/></svg></button>
+    </div>
+  </div>
+</header>
+
+<main class="board" id="board"><table id="grid"></table></main>
+
+<footer class="statusbar">
+  <span class="selinfo" id="selinfo"></span>
+  <span class="legend">
+    <span><i style="background:var(--hdr-now);box-shadow:inset 0 3px 0 var(--accent)"></i>진행중</span>
+    <span><i style="background:var(--hdr);border:1px solid #e9d27a"></i>예정</span>
+    <span><i style="background:#e3e5ea"></i>종료</span>
+  </span>
+  <span style="color:#1971C2;font-size:12px">파란 글씨: 누락 보완 제안·검증 질문 (담당/목표는 합의 필요)</span>
+  <span class="hint">글자 드래그 → 선택 글자색 · 칸 여백 드래그/Shift+클릭 → 범위선택 · 더블클릭 편집 · Ctrl+Z / Ctrl+Y</span>
+</footer>
+
+<div class="menu" id="menu" hidden></div>
+<div id="toast" role="status" aria-live="polite"></div>
+
+<dialog id="helpDlg">
+  <h2>사용법</h2>
+  <table>
+    <tr><td>칸 편집</td><td>더블클릭 · <kbd>Enter</kbd> · <kbd>F2</kbd></td></tr>
+    <tr><td>편집 중 줄바꿈</td><td><kbd>Enter</kbd></td></tr>
+    <tr><td>편집 저장</td><td><kbd>Esc</kbd> · <kbd>Ctrl</kbd>+<kbd>Enter</kbd> · 바깥 클릭</td></tr>
+    <tr><td>범위 선택</td><td>드래그 · <kbd>Shift</kbd>+클릭 · <kbd>Shift</kbd>+방향키</td></tr>
+    <tr><td>추가 선택</td><td><kbd>Ctrl</kbd>(⌘)+클릭 / 드래그</td></tr>
+    <tr><td>배경색 / 글자색 지정</td><td>글자 드래그 후 ‘글자’ 팔레트 → 선택 글자만 적용 / 칸 선택 후 팔레트 → 칸 전체 적용</td></tr>
+    <tr><td>내용 삭제</td><td><kbd>Delete</kbd> · <kbd>Backspace</kbd></td></tr>
+    <tr><td>실행취소 / 다시실행</td><td><kbd>Ctrl</kbd>+<kbd>Z</kbd> / <kbd>Ctrl</kbd>+<kbd>Y</kbd></td></tr>
+    <tr><td>복사 / 붙여넣기</td><td><kbd>Ctrl</kbd>+<kbd>C</kbd> / <kbd>Ctrl</kbd>+<kbd>V</kbd> (구글시트 범위 붙여넣기 가능)</td></tr>
+    <tr><td>팀 추가·삭제·순서</td><td>팀 이름 칸에 마우스를 올리면 버튼 표시 · 우클릭 메뉴</td></tr>
+    <tr><td>단계 추가·삭제·이동</td><td>단계 헤더 우클릭</td></tr>
+    <tr><td>라벨(예: 개발팀 전달)</td><td>헤더 위 라벨 더블클릭 / 빈 곳의 “+ 라벨” 클릭</td></tr>
+    <tr><td>열 너비</td><td>헤더 오른쪽 경계 드래그</td></tr>
+  </table>
+  <p style="font-size:12.5px;color:var(--muted);margin:12px 0 0">2026-10-08 보완: SaaS 제품화 프로젝트의 「업무계획 설계」·「업무 순서와 이유 정리」 및 DARVIS SaaS 기획 프레임을 참고했습니다. 기존 업무는 유지하고 사업전략(고객·사업 판단)/솔루션(기술 검증·구현·운영)의 역할 경계로 누락을 보완했습니다. 파란 업무는 확정된 R&amp;R이 아닌 검토 제안이며, 질문은 답을 찾아야 할 검증 항목입니다.</p>
+  <p style="font-size:12.5px;color:var(--muted);margin:12px 0 0">모든 변경은 이 브라우저(localStorage)에 자동 저장됩니다. 다른 PC·브라우저로 옮기려면 내보내기/불러오기를 사용하세요.</p>
+  <div class="dlg-foot">
+    <button class="btn danger" id="resetBtn">초기 상태로 되돌리기</button>
+    <button class="btn" id="closeHelp">닫기</button>
+  </div>
+</dialog>
+
+<script type="application/json" id="boardSeed">
+{"version":2,"title":"SaaS 제품 기획 관리 보드","teamColWidth":132,"dimPast":true,"stages":[{"id":"s1","name":"현황파악","tag":"","width":212},{"id":"s2","name":"목표수립","tag":"","width":212},{"id":"s4","name":"고객정의","tag":"→ ①② 피드백(도환, 찬진)","width":212},{"id":"s5","name":"Use 시나리오 정의","tag":"","width":212},{"id":"s6","name":"제품 정의","tag":"","width":212},{"id":"s7","name":"포트폴리오 및 가격 구성","tag":"","width":212},{"id":"s8","name":"제품 세부 기획","tag":"","width":212},{"id":"s9","name":"제품요구사항정의서(PRD) 제작","tag":"개발팀 전달","width":212},{"id":"s11","name":"개발 일정 수립","tag":"","width":212},{"id":"srzry7cayu","name":"판매가능 제품 개발","tag":"","width":212},{"id":"s12","name":"배포/운영","tag":"","width":212},{"id":"s13","name":"피드백/사후관리","tag":"","width":212}],"teams":[{"id":"t46hiefc1a","name":"주요 질문"},{"id":"t1","name":"사업전략팀\n-민수(+도환)"},{"id":"t2","name":"솔루션부"},{"id":"t3","name":"사업성장팀"},{"id":"tr8idios00","name":"프로덕트 기획 협력\n-주원"}],"schedule":{"srzry7cayu":{"due":"2026-10-22","note":""},"s1":{"due":"2026-10-12","note":""},"s2":{"due":"2026-10-12","note":""},"s4":{"due":"2026-10-14","note":""},"s5":{"due":"2026-10-14","note":""},"s6":{"due":"2026-10-14","note":""}},"cells":{"t1|s1":"-구축 사례 파악\n-제공 기능 파악\n-실무 인터뷰 내용 조사\n-기능 범위 파악\n-기능 활용성 파악\n-코어영역/커스텀개발영역 분류\n-P/I/Q별 확정사항·미확인 근거 분리\n-고객별 반복 사용·도입 효과·도입 공수 비교","t1|s4":"-기업 ICP 정의\n-기업 내 고객 페르소나 정의\n-Pain 과 Usecase 정의\n-제품 판매 가설 수립\n-시장 카테고리·진입 세그먼트·대체재 정의\n-구매자/사용자/도입 승인자 분리 및 구매 과정 정의","t1|s2":"-정량KPI 수립\n-정성KPI 수립\n-일정목표 수립\n-세일즈 목표 수립\n-단계별 통과 조건 정의","t1|s6":"-P/I/Q 제품별 핵심기능\n-제품별 구축가능 환경 정의\n-제품별 제공서비스 정의\n-P/I/Q 포트폴리오 구성 및 Priority 순위 결정\n-공통 Core와 제품별 차별가치·구매 이유 정의\n-표준제품/설정/커스텀/서비스의 제공 경계 확정","t1|s5":"-페르소나별 Use 시나리오 정의\n-제품의 기대효용 정의\n-사용 Trigger 도출\n-현재 업무와 제품 도입 후 업무 흐름 비교\n-시나리오별 필수 데이터·성공 기준·고객 검증 계획 정의","t1|s7":"-유사제품 경쟁사모델 분석\n-마켓플레이스 등 타사제품 가격비교\n-표준가격 수립\n-판매형태 수립\n-단품/번들/옵션의 제공 범위와 구매 조합 정의\n-과금 단위·사용 한도·무료/Pilot→유료 전환 조건 정의\n-초기 구축비/구독료/추가지원비 구분 및 원가·마진 검토\n-계약·갱신·해지·지원 수준과 가격의 일관성 확인","t1|s8":"-고객사 실행환경 정의\n-주요사용자 및 사용환경 정의\n-핵심기능 작동루프 정의\n-회원/접속 권한\n-데이터 연결 방식\n-커스터마이징 허용 범위\n-구축 불가능 환경 정의\n-ux/ui 기획\n-업셀링 영역 정의\n-고객사/공장/사용자 구조와 분석주기·알림·업무 규칙 정의\n-데이터 보관/삭제·초기세팅·고객지원 서비스 정책 정의\n-결과의 근거·이상/오류·빈 데이터 화면과 확인 절차 설계","t1|s9":"-1~7의 기획방향과 달성목표 대조 후 PRD 작성 -> 솔루션부 전달\n-기능별 수용 기준 및 QA/Pilot/Release 제품 통과 기준 명시\n-비기능·서비스 정책·제외 범위·선행조건 문서화","t2|srzry7cayu":"- PRD 기반 P/I/Q 설계\n- 기능 SCOPE 확정\n- 제품 개발\n- UX/UI 구현\n- QA, Pilot 검증\n- 운영 대응체계 마련\n-표준 Core/설정 기능과 고객별 확장 경계 준수\n-수용 기준별 자동/통합·권한/격리·성능·보안 시험\n-분석 수치/AI 결과의 정확성·근거·재현성 검증\n-Pilot 결함 수정 및 설치/설정·릴리스 문서 작성","t2|s11":"- PRD 기반 P/I/Q 산출 일정 수립\n- 개발인력 배정 및 투입\n-설계→개발→QA→Pilot→배포 작업 분해 및 담당 배정\n-의존성·병목·검증/수정 여유를 반영한 상세 일정 수립\n-개발/시험/운영 환경과 데이터 준비 일정 수립\n-기술 진척·위험·변경 영향 공유 및 재산정","t2|s1":"-기존 코드·데이터모델·연계·배포 자산 목록화\n-공통화/설정화 가능성과 고객별 기술 의존성 검토\n-기술부채·보안/라이선스 제약·현재 운영비/성능 파악","t46hiefc1a|s1":"-기존 구축물에서 실제 반복 사용과 효과가 확인된 기능은 무엇인가?\n-P/I/Q별 확정사항과 아직 검증하지 않은 가설은 무엇인가?\n-고객마다 공통·설정·커스텀으로 나뉘는 영역은 무엇인가?","t2|s2":"-공통화율·커스텀 비율·도입 공수의 기술 측정 기준 제안\n-성능·가용성·보안·품질 목표의 실현 가능성 검토\n-목표 대비 기술 리스크와 필요 자원/선행조건 제시","t46hiefc1a|s2":"-이번 제품화에서 가장 먼저 달성해야 할 사업·고객 성과는 무엇인가?\n-성공 여부를 판정할 KPI의 현재값·목표값·측정방법은 무엇인가?\n-단계별 통과/보완/중단 기준과 최종 의사결정권자는 누구인가?","t2|s4":"-도입에 필요한 데이터·시스템·접속 조건 체크리스트 제시\n-후보 고객의 데이터 품질·연계/보안·환경 제약 검토\n-기술 관점의 표준 도입 가능/추가 개발/도입 불가 구분","t46hiefc1a|s4":"-가장 절실한 ICP의 사용자·구매자·도입 승인자는 누구인가?\n-현재 대안으로 해결되지 않는 반복적이고 비용 큰 문제는 무엇인가?\n-구매 이유·지불의향·도입 조건을 뒷받침하는 고객 근거는 무엇인가?","t2|s5":"-시나리오별 데이터 흐름·연계·분석 로직 실현 가능성 검증\n-고위험 기능을 샘플 데이터/기술 PoC로 사전 검증\n-데이터 부족·분석 실패·수동 전환의 기술 처리 방안 제시","t46hiefc1a|s5":"-사용을 시작하는 상황·Trigger와 반복 업무는 무엇인가?\n-사용자가 데이터→분석→판단→행동으로 얻을 결과는 무엇인가?\n-기존 업무 대비 시간·비용·판단 품질이 개선되는 지점은 어디인가?","t2|s6":"-공통 기반과 P/I/Q별 모듈의 기술 경계·의존성 설계\n-고객사별 데이터 격리 및 설정/확장 구조 검토\n-MVP 후보별 재사용 가능성·구현 난이도·기술 위험 평가\n-지원 배포 방식/고객 환경과 제3자 기술 사용 조건 검토","t46hiefc1a|s6":"-각 제품의 고객 문제·핵심 가치와 공통 Core는 무엇인가?\n-표준 제품·설정·커스텀 개발·서비스의 경계는 어디인가?\n-돈을 내고 쓸 최소 MVP와 검증 가설·후속/제외 기능은 무엇인가?","t2|s7":"-인프라·저장·모델 사용·연계·지원의 원가 추정\n-고객/사용량 증가 시 비용·성능 한계 시뮬레이션\n-과금량 측정·상품별 권한/한도 구현 가능성 확인","t46hiefc1a|s7":"-고객 근거·사업성·기술부담으로 먼저 제품화할 대상은 무엇인가?\n-고객 가치와 원가를 반영한 과금 단위·가격·사용 한도는 무엇인가?\n-계약·갱신·해지·지원 수준까지 고려해 반복 판매 가능한 가격 구조인가?","t2|s8":"-데이터 스키마·연계 규격·갱신/검증·이력 추적 설계\n-인증/권한·고객사 격리·암호화/감사로그 상세 설계\n-성능·가용성·확장성·백업/복구의 기술 요구사항 구체화\n-분석/AI 결과 정확성·재현성·근거·실패 처리 설계","t46hiefc1a|s8":"-첫 접속부터 가치 확인까지 필요한 Journey·Flow·화면 구조는 무엇인가?\n-고객사/공장·사용자 권한과 데이터 연결·분석주기·알림 규칙은 무엇인가?\n-분석 결과의 근거와 예외·오류를 사용자가 이해하고 확인할 수 있는 구조인가?","t2|s9":"-PRD 기술 리뷰와 요구사항별 구현/시험 추적표 작성\n-수용 기준의 시험 가능성 및 기술 선행조건 확인\n-미결 기술 이슈·추정 공수·리스크·변경 영향 회신","t46hiefc1a|s9":"-고객 근거→Use Case→요구사항→KPI가 추적 가능한 PRD인가?\n-기능·정책·비기능·제외 범위·선행조건이 개발 가능한 수준인가?\n-QA/Pilot/Release 통과 여부를 판정할 수용 기준은 무엇인가?","t1|s11":"-기획 오너 관점의 QA→Pilot→Release 마일스톤 합의\n-Pilot 고객·데이터·데모·가격/계약 자료의 준비 일정 관리\n-목표 일정 대비 범위/품질 절충 및 변경 의사결정 관리","t46hiefc1a|s11":"-기획 오너가 관리할 마일스톤과 개발팀 상세 일정의 경계는 어디인가?\n-검증/수정 여유와 고객·데이터·판매 준비까지 반영된 일정인가?\n-범위·일정·품질 충돌 시 변경 기준과 결정 주체는 누구인가?","t1|srzry7cayu":"-기획 의도·수용 기준 충족 여부 리뷰 및 고객 UAT 수행\n-Pilot에서 실제 업무 활용·반복 사용·가치·커스텀 요청 검증\n-검증 근거로 출시/보완/중단 및 최종 판매 범위 결정","t46hiefc1a|srzry7cayu":"-개발 결과가 PRD 수용 기준과 핵심 사용 흐름을 충족하는 상태인가?\n-Pilot에서 반복 사용·업무 효과·커스텀 없이 도입할 가능성이 확인된 제품인가?\n-판매 범위와 검증 근거를 바탕으로 출시/보완/중단 중 어떤 판단인가?","t1|s12":"-판매 준비 체크: 가격/계약/데모/소개자료를 유관팀과 정합성 확인\n-고객 Onboarding·초기세팅·사용 가이드 및 인수 기준 확정\n-지원 채널·지원 수준·고객 공지·에스컬레이션 정책 합의\n-고객의 첫 가치 도달과 유료 전환 지표 점검","t2|s12":"-운영 환경·고객사 계정/권한·데이터 초기화 및 배포 실행\n-배포 승인 체크·단계 배포·롤백/복구 절차 적용\n-로그·성능·장애·보안·비용 모니터링/알림 구축\n-백업 복구 훈련·운영 매뉴얼·장애 담당/당직체계 운영","t46hiefc1a|s12":"-가격·계약·데모·자료·Onboarding까지 갖춘 실제 판매 가능 상태인가?\n-고객이 별도 개발 지원 없이 첫 가치를 얻을 수 있는 도입 구조인가?\n-정식 운영의 승인·인수 기준과 담당/에스컬레이션 주체는 누구인가?","t1|s13":"-활성/반복 사용·고객 성과·유지/이탈 지표 점검\n-피드백을 오류/사용성/신규 가치/커스텀 요청으로 분류\n-고객 영향·사업성·개발부담으로 개선 우선순위 결정\n-개선 가설·후속 로드맵·출시 후 효과 검증 관리","t2|s13":"-결함 재현·원인분석·수정/회귀시험 및 패치 배포\n-데이터 품질·분석/AI 품질·성능·비용 변화 점검\n-보안 취약점·의존성 업데이트 및 기술부채 개선\n-개선 요구별 영향/공수 제시 및 반영 결과 회신","t46hiefc1a|s13":"-고객의 반복 사용·성과·유지/이탈이 제품 가치 가설을 지지하는 상태인가?\n-피드백 중 오류·사용성·신규 가치·커스텀 요구의 비중과 원인은 무엇인가?\n-고객 영향·사업 가치·개발부담으로 먼저 개선할 항목은 무엇인가?"},"colors":{},"textColors":{"c:t46hiefc1a|s4":"#B07D00"},"lineTextColors":{"t1|s1":{"-고객별 반복 사용·도입 효과·도입 공수 비교":"#1971C2"},"t2|s1":{"-기존 코드·데이터모델·연계·배포 자산 목록화":"#1971C2","-공통화/설정화 가능성과 고객별 기술 의존성 검토":"#1971C2","-기술부채·보안/라이선스 제약·현재 운영비/성능 파악":"#1971C2"},"t46hiefc1a|s1":{"-기존 구축물에서 실제 반복 사용과 효과가 확인된 기능은 무엇인가?":"#1971C2","-P/I/Q별 확정사항과 아직 검증하지 않은 가설은 무엇인가?":"#1971C2","-고객마다 공통·설정·커스텀으로 나뉘는 영역은 무엇인가?":"#1971C2"},"t2|s2":{"-공통화율·커스텀 비율·도입 공수의 기술 측정 기준 제안":"#1971C2","-성능·가용성·보안·품질 목표의 실현 가능성 검토":"#1971C2","-목표 대비 기술 리스크와 필요 자원/선행조건 제시":"#1971C2"},"t46hiefc1a|s2":{"-이번 제품화에서 가장 먼저 달성해야 할 사업·고객 성과는 무엇인가?":"#1971C2","-성공 여부를 판정할 KPI의 현재값·목표값·측정방법은 무엇인가?":"#1971C2","-단계별 통과/보완/중단 기준과 최종 의사결정권자는 누구인가?":"#1971C2"},"t1|s4":{"-시장 카테고리·진입 세그먼트·대체재 정의":"#1971C2","-구매자/사용자/도입 승인자 분리 및 구매 과정 정의":"#1971C2"},"t2|s4":{"-도입에 필요한 데이터·시스템·접속 조건 체크리스트 제시":"#1971C2","-후보 고객의 데이터 품질·연계/보안·환경 제약 검토":"#1971C2","-기술 관점의 표준 도입 가능/추가 개발/도입 불가 구분":"#1971C2"},"t46hiefc1a|s4":{"-가장 절실한 ICP의 사용자·구매자·도입 승인자는 누구인가?":"#1971C2","-현재 대안으로 해결되지 않는 반복적이고 비용 큰 문제는 무엇인가?":"#1971C2","-구매 이유·지불의향·도입 조건을 뒷받침하는 고객 근거는 무엇인가?":"#1971C2"},"t1|s5":{"-현재 업무와 제품 도입 후 업무 흐름 비교":"#1971C2","-시나리오별 필수 데이터·성공 기준·고객 검증 계획 정의":"#1971C2"},"t2|s5":{"-시나리오별 데이터 흐름·연계·분석 로직 실현 가능성 검증":"#1971C2","-고위험 기능을 샘플 데이터/기술 PoC로 사전 검증":"#1971C2","-데이터 부족·분석 실패·수동 전환의 기술 처리 방안 제시":"#1971C2"},"t46hiefc1a|s5":{"-사용을 시작하는 상황·Trigger와 반복 업무는 무엇인가?":"#1971C2","-사용자가 데이터→분석→판단→행동으로 얻을 결과는 무엇인가?":"#1971C2","-기존 업무 대비 시간·비용·판단 품질이 개선되는 지점은 어디인가?":"#1971C2"},"t1|s6":{"-공통 Core와 제품별 차별가치·구매 이유 정의":"#1971C2","-표준제품/설정/커스텀/서비스의 제공 경계 확정":"#1971C2"},"t2|s6":{"-공통 기반과 P/I/Q별 모듈의 기술 경계·의존성 설계":"#1971C2","-고객사별 데이터 격리 및 설정/확장 구조 검토":"#1971C2","-MVP 후보별 재사용 가능성·구현 난이도·기술 위험 평가":"#1971C2","-지원 배포 방식/고객 환경과 제3자 기술 사용 조건 검토":"#1971C2"},"t46hiefc1a|s6":{"-각 제품의 고객 문제·핵심 가치와 공통 Core는 무엇인가?":"#1971C2","-표준 제품·설정·커스텀 개발·서비스의 경계는 어디인가?":"#1971C2","-돈을 내고 쓸 최소 MVP와 검증 가설·후속/제외 기능은 무엇인가?":"#1971C2"},"t1|s7":{"-단품/번들/옵션의 제공 범위와 구매 조합 정의":"#1971C2","-과금 단위·사용 한도·무료/Pilot→유료 전환 조건 정의":"#1971C2","-초기 구축비/구독료/추가지원비 구분 및 원가·마진 검토":"#1971C2","-계약·갱신·해지·지원 수준과 가격의 일관성 확인":"#1971C2"},"t2|s7":{"-인프라·저장·모델 사용·연계·지원의 원가 추정":"#1971C2","-고객/사용량 증가 시 비용·성능 한계 시뮬레이션":"#1971C2","-과금량 측정·상품별 권한/한도 구현 가능성 확인":"#1971C2"},"t46hiefc1a|s7":{"-고객 근거·사업성·기술부담으로 먼저 제품화할 대상은 무엇인가?":"#1971C2","-고객 가치와 원가를 반영한 과금 단위·가격·사용 한도는 무엇인가?":"#1971C2","-계약·갱신·해지·지원 수준까지 고려해 반복 판매 가능한 가격 구조인가?":"#1971C2"},"t1|s8":{"-고객사/공장/사용자 구조와 분석주기·알림·업무 규칙 정의":"#1971C2","-데이터 보관/삭제·초기세팅·고객지원 서비스 정책 정의":"#1971C2","-결과의 근거·이상/오류·빈 데이터 화면과 확인 절차 설계":"#1971C2"},"t2|s8":{"-데이터 스키마·연계 규격·갱신/검증·이력 추적 설계":"#1971C2","-인증/권한·고객사 격리·암호화/감사로그 상세 설계":"#1971C2","-성능·가용성·확장성·백업/복구의 기술 요구사항 구체화":"#1971C2","-분석/AI 결과 정확성·재현성·근거·실패 처리 설계":"#1971C2"},"t46hiefc1a|s8":{"-첫 접속부터 가치 확인까지 필요한 Journey·Flow·화면 구조는 무엇인가?":"#1971C2","-고객사/공장·사용자 권한과 데이터 연결·분석주기·알림 규칙은 무엇인가?":"#1971C2","-분석 결과의 근거와 예외·오류를 사용자가 이해하고 확인할 수 있는 구조인가?":"#1971C2"},"t1|s9":{"-요구사항 ID로 고객 근거→Use Case→기능→KPI 추적":"#1971C2","-기능별 수용 기준 및 QA/Pilot/Release 제품 통과 기준 명시":"#1971C2","-비기능·서비스 정책·제외 범위·선행조건 문서화":"#1971C2","-미결사항·합의/승인·버전·변경 이력 관리":"#1971C2"},"t2|s9":{"-PRD 기술 리뷰와 요구사항별 구현/시험 추적표 작성":"#1971C2","-수용 기준의 시험 가능성 및 기술 선행조건 확인":"#1971C2","-미결 기술 이슈·추정 공수·리스크·변경 영향 회신":"#1971C2"},"t46hiefc1a|s9":{"-고객 근거→Use Case→요구사항→KPI가 추적 가능한 PRD인가?":"#1971C2","-기능·정책·비기능·제외 범위·선행조건이 개발 가능한 수준인가?":"#1971C2","-QA/Pilot/Release 통과 여부를 판정할 수용 기준은 무엇인가?":"#1971C2"},"t1|s11":{"-기획 오너 관점의 QA→Pilot→Release 마일스톤 합의":"#1971C2","-Pilot 고객·데이터·데모·가격/계약 자료의 준비 일정 관리":"#1971C2","-목표 일정 대비 범위/품질 절충 및 변경 의사결정 관리":"#1971C2"},"t2|s11":{"-설계→개발→QA→Pilot→배포 작업 분해 및 담당 배정":"#1971C2","-의존성·병목·검증/수정 여유를 반영한 상세 일정 수립":"#1971C2","-개발/시험/운영 환경과 데이터 준비 일정 수립":"#1971C2","-기술 진척·위험·변경 영향 공유 및 재산정":"#1971C2"},"t46hiefc1a|s11":{"-기획 오너가 관리할 마일스톤과 개발팀 상세 일정의 경계는 어디인가?":"#1971C2","-검증/수정 여유와 고객·데이터·판매 준비까지 반영된 일정인가?":"#1971C2","-범위·일정·품질 충돌 시 변경 기준과 결정 주체는 누구인가?":"#1971C2"},"t1|srzry7cayu":{"-기획 의도·수용 기준 충족 여부 리뷰 및 고객 UAT 수행":"#1971C2","-Pilot에서 실제 업무 활용·반복 사용·가치·커스텀 요청 검증":"#1971C2","-검증 근거로 출시/보완/중단 및 최종 판매 범위 결정":"#1971C2"},"t2|srzry7cayu":{"-표준 Core/설정 기능과 고객별 확장 경계 준수":"#1971C2","-수용 기준별 자동/통합·권한/격리·성능·보안 시험":"#1971C2","-분석 수치/AI 결과의 정확성·근거·재현성 검증":"#1971C2","-Pilot 결함 수정 및 설치/설정·릴리스 문서 작성":"#1971C2"},"t46hiefc1a|srzry7cayu":{"-개발 결과가 PRD 수용 기준과 핵심 사용 흐름을 충족하는 상태인가?":"#1971C2","-Pilot에서 반복 사용·업무 효과·커스텀 없이 도입할 가능성이 확인된 제품인가?":"#1971C2","-판매 범위와 검증 근거를 바탕으로 출시/보완/중단 중 어떤 판단인가?":"#1971C2"},"t1|s12":{"-판매 준비 체크: 가격/계약/데모/소개자료를 유관팀과 정합성 확인":"#1971C2","-고객 Onboarding·초기세팅·사용 가이드 및 인수 기준 확정":"#1971C2","-지원 채널·지원 수준·고객 공지·에스컬레이션 정책 합의":"#1971C2","-고객의 첫 가치 도달과 유료 전환 지표 점검":"#1971C2"},"t2|s12":{"-운영 환경·고객사 계정/권한·데이터 초기화 및 배포 실행":"#1971C2","-배포 승인 체크·단계 배포·롤백/복구 절차 적용":"#1971C2","-로그·성능·장애·보안·비용 모니터링/알림 구축":"#1971C2","-백업 복구 훈련·운영 매뉴얼·장애 담당/당직체계 운영":"#1971C2"},"t46hiefc1a|s12":{"-가격·계약·데모·자료·Onboarding까지 갖춘 실제 판매 가능 상태인가?":"#1971C2","-고객이 별도 개발 지원 없이 첫 가치를 얻을 수 있는 도입 구조인가?":"#1971C2","-정식 운영의 승인·인수 기준과 담당/에스컬레이션 주체는 누구인가?":"#1971C2"},"t1|s13":{"-활성/반복 사용·고객 성과·유지/이탈 지표 점검":"#1971C2","-피드백을 오류/사용성/신규 가치/커스텀 요청으로 분류":"#1971C2","-고객 영향·사업성·개발부담으로 개선 우선순위 결정":"#1971C2","-개선 가설·후속 로드맵·출시 후 효과 검증 관리":"#1971C2"},"t2|s13":{"-결함 재현·원인분석·수정/회귀시험 및 패치 배포":"#1971C2","-데이터 품질·분석/AI 품질·성능·비용 변화 점검":"#1971C2","-보안 취약점·의존성 업데이트 및 기술부채 개선":"#1971C2","-개선 요구별 영향/공수 제시 및 반영 결과 회신":"#1971C2"},"t46hiefc1a|s13":{"-고객의 반복 사용·성과·유지/이탈이 제품 가치 가설을 지지하는 상태인가?":"#1971C2","-피드백 중 오류·사용성·신규 가치·커스텀 요구의 비중과 원인은 무엇인가?":"#1971C2","-고객 영향·사업 가치·개발부담으로 먼저 개선할 항목은 무엇인가?":"#1971C2"}}}
+</script>
+<script type="application/json" id="seedPatches">
+{"t46hiefc1a|s1":["-기존 구축물에서 실제 반복 사용과 효과가 확인된 기능은 무엇인가?\n-P/I/Q별 확정사항과 아직 검증하지 않은 가설은 무엇인가?\n-고객마다 공통·설정·커스텀으로 나뉘는 영역은 무엇인가?\n-표준 제품화를 막는 데이터·연계·기술 제약은 무엇인가?","-기존 구축물에서 실제 반복 사용과 효과가 확인된 기능은 무엇인가?\n-P/I/Q별 확정사항과 아직 검증하지 않은 가설은 무엇인가?\n-고객마다 공통·설정·커스텀으로 나뉘는 영역은 무엇인가?"],"t46hiefc1a|s2":["-이번 제품화에서 가장 먼저 달성해야 할 사업·고객 성과는 무엇인가?\n-성공 여부를 판정할 KPI의 현재값·목표값·측정방법은 무엇인가?\n-단계별 통과/보완/중단 기준과 최종 의사결정권자는 누구인가?\n-목표 일정 내 반드시 지킬 범위·품질과 조정 가능한 항목은 무엇인가?","-이번 제품화에서 가장 먼저 달성해야 할 사업·고객 성과는 무엇인가?\n-성공 여부를 판정할 KPI의 현재값·목표값·측정방법은 무엇인가?\n-단계별 통과/보완/중단 기준과 최종 의사결정권자는 누구인가?"],"t46hiefc1a|s4":["-우리가 진입할 시장 카테고리와 우선 고객 세그먼트는 무엇인가?\n-가장 절실한 ICP의 사용자·구매자·도입 승인자는 누구인가?\n-현재 대안으로 해결되지 않는 반복적이고 비용 큰 문제는 무엇인가?\n-구매 이유·지불의향·도입 조건을 뒷받침하는 고객 근거는 무엇인가?","-가장 절실한 ICP의 사용자·구매자·도입 승인자는 누구인가?\n-현재 대안으로 해결되지 않는 반복적이고 비용 큰 문제는 무엇인가?\n-구매 이유·지불의향·도입 조건을 뒷받침하는 고객 근거는 무엇인가?"],"t46hiefc1a|s5":["-사용을 시작하는 상황·Trigger와 반복 업무는 무엇인가?\n-사용자가 데이터→분석→판단→행동으로 얻을 결과는 무엇인가?\n-기존 업무 대비 시간·비용·판단 품질이 개선되는 지점은 어디인가?\n-필수 데이터·예외 상황·사람의 확인 지점·시나리오 성공 기준은 무엇인가?","-사용을 시작하는 상황·Trigger와 반복 업무는 무엇인가?\n-사용자가 데이터→분석→판단→행동으로 얻을 결과는 무엇인가?\n-기존 업무 대비 시간·비용·판단 품질이 개선되는 지점은 어디인가?"],"t46hiefc1a|s6":["-P/I/Q는 독립 제품·공통 플랫폼의 모듈·Use Case Pack 중 무엇인가?\n-각 제품의 고객 문제·핵심 가치와 공통 Core는 무엇인가?\n-표준 제품·설정·커스텀 개발·서비스의 경계는 어디인가?\n-돈을 내고 쓸 최소 MVP와 검증 가설·후속/제외 기능은 무엇인가?","-각 제품의 고객 문제·핵심 가치와 공통 Core는 무엇인가?\n-표준 제품·설정·커스텀 개발·서비스의 경계는 어디인가?\n-돈을 내고 쓸 최소 MVP와 검증 가설·후속/제외 기능은 무엇인가?"],"t46hiefc1a|s7":["-고객 근거·사업성·기술부담으로 먼저 제품화할 대상은 무엇인가?\n-단품·번들·옵션의 구성과 제품 간 선행조건은 무엇인가?\n-고객 가치와 원가를 반영한 과금 단위·가격·사용 한도는 무엇인가?\n-무료/Pilot→유료 전환과 구축비·구독료·추가지원비의 경계는 무엇인가?\n-계약·갱신·해지·지원 수준까지 고려해 반복 판매 가능한 가격 구조인가?","-고객 근거·사업성·기술부담으로 먼저 제품화할 대상은 무엇인가?\n-고객 가치와 원가를 반영한 과금 단위·가격·사용 한도는 무엇인가?\n-계약·갱신·해지·지원 수준까지 고려해 반복 판매 가능한 가격 구조인가?"],"t46hiefc1a|s8":["-첫 접속부터 가치 확인까지 필요한 Journey·Flow·화면 구조는 무엇인가?\n-고객사/공장·사용자 권한과 데이터 연결·분석주기·알림 규칙은 무엇인가?\n-분석 결과의 근거와 예외·오류를 사용자가 이해하고 확인할 수 있는 구조인가?\n-데이터 보관/삭제·지원·초기세팅·비기능 요구의 수용 조건은 무엇인가?","-첫 접속부터 가치 확인까지 필요한 Journey·Flow·화면 구조는 무엇인가?\n-고객사/공장·사용자 권한과 데이터 연결·분석주기·알림 규칙은 무엇인가?\n-분석 결과의 근거와 예외·오류를 사용자가 이해하고 확인할 수 있는 구조인가?"],"t46hiefc1a|s9":["-고객 근거→Use Case→요구사항→KPI가 추적 가능한 PRD인가?\n-기능·정책·비기능·제외 범위·선행조건이 개발 가능한 수준인가?\n-QA/Pilot/Release 통과 여부를 판정할 수용 기준은 무엇인가?\n-미결사항·승인 주체·버전·변경 영향이 명확하게 관리되는 문서인가?","-고객 근거→Use Case→요구사항→KPI가 추적 가능한 PRD인가?\n-기능·정책·비기능·제외 범위·선행조건이 개발 가능한 수준인가?\n-QA/Pilot/Release 통과 여부를 판정할 수용 기준은 무엇인가?"],"t46hiefc1a|s11":["-설계→개발→QA→Pilot→Release의 선행조건과 병목은 무엇인가?\n-기획 오너가 관리할 마일스톤과 개발팀 상세 일정의 경계는 어디인가?\n-검증/수정 여유와 고객·데이터·판매 준비까지 반영된 일정인가?\n-범위·일정·품질 충돌 시 변경 기준과 결정 주체는 누구인가?","-기획 오너가 관리할 마일스톤과 개발팀 상세 일정의 경계는 어디인가?\n-검증/수정 여유와 고객·데이터·판매 준비까지 반영된 일정인가?\n-범위·일정·품질 충돌 시 변경 기준과 결정 주체는 누구인가?"],"t46hiefc1a|srzry7cayu":["-개발 결과가 PRD 수용 기준과 핵심 사용 흐름을 충족하는 상태인가?\n-실제 고객 데이터에서 분석 결과·근거·권한·안정성이 검증된 상태인가?\n-Pilot에서 반복 사용·업무 효과·커스텀 없이 도입할 가능성이 확인된 제품인가?\n-판매 범위와 검증 근거를 바탕으로 출시/보완/중단 중 어떤 판단인가?","-개발 결과가 PRD 수용 기준과 핵심 사용 흐름을 충족하는 상태인가?\n-Pilot에서 반복 사용·업무 효과·커스텀 없이 도입할 가능성이 확인된 제품인가?\n-판매 범위와 검증 근거를 바탕으로 출시/보완/중단 중 어떤 판단인가?"],"t46hiefc1a|s12":["-가격·계약·데모·자료·Onboarding까지 갖춘 실제 판매 가능 상태인가?\n-고객이 별도 개발 지원 없이 첫 가치를 얻을 수 있는 도입 구조인가?\n-지원·장애 대응·모니터링·보안·백업·롤백을 지속 운영할 수 있는 체계인가?\n-정식 운영의 승인·인수 기준과 담당/에스컬레이션 주체는 누구인가?","-가격·계약·데모·자료·Onboarding까지 갖춘 실제 판매 가능 상태인가?\n-고객이 별도 개발 지원 없이 첫 가치를 얻을 수 있는 도입 구조인가?\n-정식 운영의 승인·인수 기준과 담당/에스컬레이션 주체는 누구인가?"],"t46hiefc1a|s13":["-고객의 반복 사용·성과·유지/이탈이 제품 가치 가설을 지지하는 상태인가?\n-피드백 중 오류·사용성·신규 가치·커스텀 요구의 비중과 원인은 무엇인가?\n-고객 영향·사업 가치·개발부담으로 먼저 개선할 항목은 무엇인가?\n-개선 전후 효과와 분석 품질·성능·비용을 확인할 기준은 무엇인가?","-고객의 반복 사용·성과·유지/이탈이 제품 가치 가설을 지지하는 상태인가?\n-피드백 중 오류·사용성·신규 가치·커스텀 요구의 비중과 원인은 무엇인가?\n-고객 영향·사업 가치·개발부담으로 먼저 개선할 항목은 무엇인가?"]}
+</script>
+<script>
+(() => {
+'use strict';
+
+const STORE_KEY = 'processBoard.v1';
+const BOARD_SEED = JSON.parse(document.getElementById('boardSeed').textContent);
+const SEED_PATCHES = JSON.parse(document.getElementById('seedPatches').textContent);  // 기본 데이터 개정분 { 칸: [이전값, 새값] }
+let seedPatched = 0;
+const RECENT_KEYS = { bg: 'processBoard.recentColors', fg: 'processBoard.recentTextColors' };
+const COLOR_MAP = { bg: 'colors', fg: 'textColors' };
+const ARROW_W = 0, MIN_W = 120, MIN_TEAM_W = 90, MAX_W = 900;
+const PALETTE = [
+  ['#FFF3BF','노랑'],['#FFE0B2','주황'],['#FFD6D6','빨강'],['#FCD9E9','분홍'],['#EBDDFB','보라'],
+  ['#DBE4FF','남색'],['#D3ECFF','하늘'],['#CDF3EA','청록'],['#D8F5D0','연두'],['#E9ECEF','회색']
+];
+const TEXT_PALETTE = [
+  ['#1F2633','검정'],['#868E96','회색'],['#E03131','빨강'],['#E8590C','주황'],['#B07D00','황토'],
+  ['#2F9E44','초록'],['#0C8599','청록'],['#1971C2','파랑'],['#7048E8','보라'],['#C2255C','분홍']
+];
+const DEFAULT_STAGES = ['현황파악','목표수립','시장정의','고객정의','Use 시나리오 정의','제품 정의','포트폴리오 및 가격 구성','제품 세부 기획','제품요구사항정의서(PRD) 제작','시장정의','개발 일정 수립','배포/운영','피드백/사후관리'];
+const DEFAULT_TEAMS = ['사업전략팀','솔루션부','사업성장팀'];
+const DEFAULT_CELL = ['-구축사례 파악','-제공 기능 파악','-실무 인터뷰 내용 조사','-기능 범위 파악','-기능 활용성 파악','-코어영역/커스텀개발영역 분류'].join('\n');
+
+const $ = id => document.getElementById(id);
+const board = $('board'), grid = $('grid'), titleEl = $('title');
+const uid = p => p + Date.now().toString(36).slice(-4) + Math.random().toString(36).slice(2, 7);
+const esc = s => String(s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+const isHex = v => typeof v === 'string' && /^#[0-9a-f]{6}$/i.test(v);
+const isDate = v => typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v);
+const pad = n => String(n).padStart(2, '0');
+
+function defaultState(){
+  return normalize(JSON.parse(JSON.stringify(BOARD_SEED)));   // 누락 필드(richTextColors 등) 채움
+}
+
+function normalize(s){
+  if (!s || typeof s !== 'object' || !Array.isArray(s.stages) || !Array.isArray(s.teams)) throw new Error('보드 데이터 형식이 아닙니다');
+  const num = (v, d) => (typeof v === 'number' && isFinite(v)) ? v : d;
+  const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+  const seen = new Set();
+  const fixId = (id, p) => { id = String(id || ''); if (!id || seen.has(id)) id = uid(p); seen.add(id); return id; };
+  const out = {
+    version: 2,
+    title: typeof s.title === 'string' ? s.title : BOARD_SEED.title,
+    teamColWidth: clamp(num(s.teamColWidth, 132), MIN_TEAM_W, 400),
+    dimPast: s.dimPast !== false,
+    stages: s.stages.map(x => ({ id: fixId(x && x.id, 's'), name: String((x && x.name) ?? ''), tag: String((x && x.tag) ?? ''), width: clamp(num(x && x.width, 212), MIN_W, MAX_W) })),
+    teams: s.teams.map(x => ({ id: fixId(x && x.id, 't'), name: String((x && x.name) ?? '') })),
+    schedule: {}, cells: {}, colors: {}, textColors: {}, lineTextColors: {}, richTextColors: {}
+  };
+  const src = (o) => (o && typeof o === 'object') ? o : {};
+  for (const [k, v] of Object.entries(src(s.schedule))) {
+    if (!v || typeof v !== 'object') continue;
+    // v1(시작일/종료일) → v2(기한): 종료일을 기한으로, 종료일이 없으면 시작일을 기한으로
+    const due = [v.due, v.end, v.start].find(isDate) || '';
+    const note = typeof v.note === 'string' ? v.note : '';
+    if (due || note) out.schedule[k] = { due, note };
+  }
+  for (const [k, v] of Object.entries(src(s.cells))) if (typeof v === 'string' && v) out.cells[k] = v;
+  for (const [k, v] of Object.entries(src(s.colors))) if (isHex(v)) out.colors[k] = v;
+  for (const [k, v] of Object.entries(src(s.textColors))) if (isHex(v)) out.textColors[k] = v;
+  for (const [tk, values] of Object.entries(src(s.lineTextColors))) {
+    if (!out.cells[tk]) continue;
+    const lines = new Set(out.cells[tk].split('\n'));
+    const valid = Object.fromEntries(Object.entries(src(values)).filter(([line, color]) => lines.has(line) && isHex(color)));
+    if (Object.keys(valid).length) out.lineTextColors[tk] = valid;
+  }
+  for (const [ck, runs] of Object.entries(src(s.richTextColors))) {
+    if (!Array.isArray(runs)) continue;
+    let text='';
+    if(ck.startsWith('c:')) text=out.cells[ck.slice(2)]||'';
+    else if(ck.startsWith('h:')) text=out.stages.find(x=>x.id===ck.slice(2))?.name||'';
+    else if(ck.startsWith('t:')) text=out.teams.find(x=>x.id===ck.slice(2))?.name||'';
+    const valid=runs.filter(x=>x && Number.isInteger(x.start) && Number.isInteger(x.end) && x.end>x.start && isHex(x.color))
+      .map(x=>({start:Math.max(0,x.start),end:Math.min(text.length,x.end),color:x.color})).filter(x=>x.end>x.start);
+    if(valid.length) out.richTextColors[ck]=valid;
+  }
+  return out;
+}
+
+/* ── 상태 / 저장 / 실행취소 ── */
+let S = load();
+let undoStack = [], redoStack = [];
+let sel = new Set(), anchor = null, cursor = null;
+let editing = null, drag = null;
+let els = {};
+
+/* 기본 데이터 개정분을 이미 저장된 보드에 반영: 사용자가 손대지 않은(기존 기본값 그대로인) 칸만 교체 */
+function applySeedPatches(s){
+  for (const [tk, [from, to]] of Object.entries(SEED_PATCHES)) {
+    if (s.cells[tk] !== from) continue;
+    s.cells[tk] = to;
+    delete s.richTextColors['c:' + tk];   // 글자 위치 기준 색은 본문이 바뀌면 어긋나므로 제거
+    seedPatched++;
+  }
+  return seedPatched ? normalize(s) : s;   // normalize가 사라진 줄의 줄별 글자색을 정리
+}
+function load(){
+  try { const raw = localStorage.getItem(STORE_KEY); if (raw) return applySeedPatches(normalize(JSON.parse(raw))); }
+  catch (e) { console.warn('저장 데이터 불러오기 실패', e); }
+  return defaultState();
+}
+function save(){
+  const el = $('saved');
+  try {
+    localStorage.setItem(STORE_KEY, JSON.stringify(S));
+    const d = new Date();
+    el.textContent = `자동 저장됨 · ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+    el.classList.remove('err');
+  } catch (e) {
+    el.textContent = '⚠ 브라우저 저장 실패 — 내보내기로 백업하세요';
+    el.classList.add('err');
+  }
+}
+function pushUndo(before){
+  undoStack.push(before);
+  if (undoStack.length > 200) undoStack.shift();
+  redoStack = [];
+  updateUndoBtns();
+}
+function commit(fn, opts = {}){
+  const before = JSON.stringify(S);
+  fn();
+  if (JSON.stringify(S) === before) { if (!opts.noRender) render(); return; }
+  pushUndo(before);
+  save();
+  if (opts.noRender) { applyStatus(); updateUndoBtns(); } else render();
+}
+function undo(){
+  if (!undoStack.length) return;
+  redoStack.push(JSON.stringify(S));
+  S = JSON.parse(undoStack.pop());
+  save(); render();
+}
+function redo(){
+  if (!redoStack.length) return;
+  undoStack.push(JSON.stringify(S));
+  S = JSON.parse(redoStack.pop());
+  save(); render();
+}
+function updateUndoBtns(){
+  $('undo').disabled = !undoStack.length;
+  $('redo').disabled = !redoStack.length;
+}
+
+/* ── 그리드 좌표 ──
+   r: 0=단계 헤더, 1=일정, 2..=팀   c: 0=팀 이름 열, 1..=단계 */
+const nRows = () => S.teams.length + 2;
+const nCols = () => S.stages.length + 1;
+const key = (r, c) => r + ',' + c;
+const parseKey = k => k.split(',').map(Number);
+const selectable = (r, c) => r >= 0 && r < nRows() && c >= 0 && c < nCols() && !(r < 2 && c === 0);
+
+function ref(r, c){
+  if (!selectable(r, c)) return null;
+  const stage = c > 0 ? S.stages[c - 1] : null, team = r >= 2 ? S.teams[r - 2] : null;
+  if (r === 0) return { type: 'head', stage, ck: 'h:' + stage.id };
+  if (r === 1) return { type: 'sched', stage, ck: 's:' + stage.id };
+  if (c === 0) return { type: 'team', team, ck: 't:' + team.id };
+  return { type: 'body', stage, team, ck: 'c:' + team.id + '|' + stage.id, tk: team.id + '|' + stage.id };
+}
+function sched(id){ return S.schedule[id] || (S.schedule[id] = { due: '', note: '' }); }
+function tidySched(id){ const x = S.schedule[id]; if (x && !x.due && !x.note) delete S.schedule[id]; }
+function getText(r, c){
+  const x = ref(r, c); if (!x) return '';
+  if (x.type === 'head') return x.stage.name;
+  if (x.type === 'sched') return (S.schedule[x.stage.id] || {}).note || '';
+  if (x.type === 'team') return x.team.name;
+  return S.cells[x.tk] || '';
+}
+function setText(r, c, v){
+  const x = ref(r, c); if (!x) return;
+  const before=getText(r,c);
+  if(x.type!=='sched' && S.richTextColors[x.ck]) {
+    const next=rebaseRuns(S.richTextColors[x.ck],before,v);
+    if(next.length) S.richTextColors[x.ck]=next; else delete S.richTextColors[x.ck];
+  }
+  if(x.type==='body' && S.lineTextColors[x.tk] && before!==v) {
+    const oldLines=before.split('\n'),newLines=v.split('\n'), colors=S.lineTextColors[x.tk];
+    if(oldLines.length===newLines.length) {
+      const next={};oldLines.forEach((line,i)=>{if(colors[line] && newLines[i])next[newLines[i]]=colors[line];});
+      S.lineTextColors[x.tk]=next;
+    }
+  }
+  if (x.type === 'head') x.stage.name = v;
+  else if (x.type === 'sched') { sched(x.stage.id).note = v; tidySched(x.stage.id); }
+  else if (x.type === 'team') x.team.name = v;
+  else if (v) S.cells[x.tk] = v; else delete S.cells[x.tk];
+}
+
+/* ── 날짜 / 상태 ── */
+function todayStr(){ const d = new Date(); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; }
+function dnum(s){ const [y, m, d] = s.split('-').map(Number); return Date.UTC(y, m - 1, d) / 864e5; }
+// '2026-09-01' → '~9/1(화)'
+function fmtDue(s){
+  const [y, m, d] = s.split('-').map(Number);
+  return `~${m}/${d}(${'일월화수목금토'[new Date(y, m - 1, d).getDay()]})`;
+}
+/* 기한 기준 상태: 기한이 지났으면 종료, 아직 안 지난 기한 중 가장 가까운 단계가 진행중, 나머지는 예정 */
+function stageStatuses(t = todayStr()){
+  const dues = S.stages.map(s => (S.schedule[s.id] || {}).due || '');
+  const next = dues.filter(d => d && d >= t).sort()[0];
+  return dues.map(due => {
+    if (!due) return { k: 'none' };
+    if (due < t) return { k: 'past', due };
+    return { k: due === next ? 'now' : 'todo', due, d: dnum(due) - dnum(t) };
+  });
+}
+function chipHtml(st){
+  if (st.k === 'none') return '<span class="chip none">일정 미정</span>';
+  if (st.k === 'now') return `<span class="chip now">진행중 · ${st.d === 0 ? '오늘 마감' : 'D-' + st.d}</span>`;
+  if (st.k === 'todo') return `<span class="chip todo">예정 · D-${st.d}</span>`;
+  return '<span class="chip past">종료</span>';
+}
+
+/* ── 색 ── */
+function contrast(hex){
+  const n = parseInt(hex.slice(1), 16);
+  const ch = v => { v /= 255; return v <= .03928 ? v / 12.92 : Math.pow((v + .055) / 1.055, 2.4); };
+  const L = .2126 * ch(n >> 16 & 255) + .7152 * ch(n >> 8 & 255) + .0722 * ch(n & 255);
+  return L < .36 ? '#ffffff' : '#1f2633';
+}
+function colorAttr(ck){
+  const bg = S.colors[ck], fg = S.textColors[ck];
+  const st = [];
+  if (bg) st.push('background:' + bg);
+  if (fg || bg) st.push('color:' + (fg || contrast(bg)));  // 글자색 미지정이면 배경 대비 자동
+  return st.length ? ` style="${st.join(';')}"` : '';
+}
+// 조건에 맞는 색 키를 배경·글자색 양쪽에서 삭제
+function dropColors(pred){ for (const m of [S.colors, S.textColors, S.richTextColors]) for (const k of Object.keys(m)) if (pred(k)) delete m[k]; }
+
+/* ── 렌더링 ── */
+function renderText(v, tk = '', richKey = ''){
+  if (!v) return '';
+  const lineColors = S.lineTextColors[tk] || {};
+  const runs = S.richTextColors[richKey] || [];
+  let offset=0;
+  return v.split('\n').map(l => {
+    const color=lineColors[l], start=offset, end=start+l.length;
+    offset=end+1;
+    const active=runs.filter(r=>r.end>start && r.start<end);
+    const cuts=[...new Set([start,end,...active.flatMap(r=>[Math.max(start,r.start),Math.min(end,r.end)])])].sort((a,b)=>a-b);
+    let text='';
+    for(let i=0;i<cuts.length-1;i++) {
+      const a=cuts[i],b=cuts[i+1],run=active.find(r=>r.start<=a && r.end>=b);
+      const escaped=esc(l.slice(a-start,b-start));
+      text+=run ? '<span data-text-run="'+richKey+'" style="color:'+run.color+'">'+escaped+'</span>' : escaped;
+    }
+    return '<div class="ln'+(/^\s*[-•·*▪◦※]/.test(l)?' b':'')+'"'+(color?' style="color:'+color+'" data-mece="added"':'')+'>'+(l?text:'<br>')+'</div>';
+  }).join('');
+}
+const CAL_ICON = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="3" width="12" height="11" rx="2"/><path d="M2 6.5h12M5.5 1.5v3M10.5 1.5v3"/></svg>';
+function tableWidth(){ return S.teamColWidth + S.stages.reduce((a, s) => a + s.width, 0) + Math.max(0, S.stages.length - 1) * ARROW_W; }
+
+function render(){
+  const n = S.stages.length;
+  titleEl.textContent = S.title || '제목 없음';
+  document.title = S.title || '프로세스 보드';
+  $('dimPast').checked = S.dimPast;
+
+  let h = `<colgroup><col class="teamcol" style="width:${S.teamColWidth}px">`;
+  S.stages.forEach(s => { h += `<col style="width:${s.width}px">`; });
+  h += '</colgroup><thead>';
+
+  // 라벨 행
+  h += '<tr class="labrow"><th class="lab corner sticky-l"></th>';
+  S.stages.forEach((s, i) => {
+    h += `<th class="lab" data-lab="${i}">${s.tag ? `<span class="tag" title="더블클릭하여 라벨 수정">${esc(s.tag)}</span>` : '<span class="tag-add" title="라벨 추가">+ 라벨</span>'}</th>`;
+  });
+  h += '</tr>';
+
+  // 단계 헤더 행
+  h += `<tr class="hrow"><th class="hd corner sticky-l" data-r="0" data-vc="0"><div class="diag"><svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"><line x1="0" y1="0" x2="100" y2="100" stroke="currentColor" stroke-width="1" vector-effect="non-scaling-stroke"/></svg><span class="diag-team">팀</span><span class="diag-stage">단계</span></div><span class="rz" data-rz="-1" title="드래그하여 너비 조절"></span></th>`;
+  S.stages.forEach((s, i) => {
+    const c = i + 1;
+    h += `<th class="hd cell" data-r="0" data-c="${c}" data-vc="${c}"${colorAttr('h:' + s.id)}>`
+      + `<div class="h-top"><span class="num">${c}</span><div class="txt">${renderText(s.name, '', 'h:' + s.id)}</div></div>`
+      + `<div class="h-meta"></div><span class="rz" data-rz="${i}" title="드래그하여 너비 조절"></span></th>`;
+  });
+  h += '</tr></thead><tbody>';
+
+  // 일정 행
+  h += '<tr class="srow"><th class="rowhead sticky-l" data-r="1" data-vc="0">일정</th>';
+  S.stages.forEach((s, i) => {
+    const c = i + 1, x = S.schedule[s.id] || {};
+    h += `<td class="cell sched" data-r="1" data-c="${c}" data-vc="${c}"${colorAttr('s:' + s.id)}>`
+      + `<div class="due"><span>목표</span>`
+      + `<input type="date" class="due-inp" max="2099-12-31" tabindex="-1" aria-label="목표" data-sid="${esc(s.id)}" value="${x.due || ''}">`
+      + `<button type="button" class="due-btn${x.due ? '' : ' empty'}" data-sid="${esc(s.id)}" title="${x.due ? '목표 ' + x.due + ' · 클릭하여 변경' : '클릭하여 목표 선택'}">${CAL_ICON}${x.due ? fmtDue(x.due) : '날짜 선택'}</button>`
+      + (x.due ? `<button type="button" class="due-clr" data-sid="${esc(s.id)}" title="목표 지우기">✕</button>` : '')
+      + `</div><div class="dprint"></div></td>`;
+  });
+  h += '</tr>';
+
+  // 팀 행
+  S.teams.forEach((t, ti) => {
+    const r = ti + 2;
+    h += `<tr class="trow"><th class="cell team sticky-l" data-r="${r}" data-c="0" data-vc="0"${colorAttr('t:' + t.id)}>`
+      + `<div class="txt">${renderText(t.name, '', 't:' + t.id)}</div>`
+      + `<div class="tctl"><button data-act="up" data-ti="${ti}" title="위로 이동"${ti === 0 ? ' disabled' : ''}>▲</button>`
+      + `<button data-act="down" data-ti="${ti}" title="아래로 이동"${ti === S.teams.length - 1 ? ' disabled' : ''}>▼</button>`
+      + `<button data-act="add" data-ti="${ti}" title="아래에 팀 추가">＋</button>`
+      + `<button data-act="del" data-ti="${ti}" class="del" title="팀 삭제">✕</button></div></th>`;
+    S.stages.forEach((s, i) => {
+      const c = i + 1, tk = t.id + '|' + s.id;
+      h += `<td class="cell body" data-r="${r}" data-c="${c}" data-vc="${c}"${colorAttr('c:' + tk)}><div class="txt">${renderText(S.cells[tk] || '', tk, 'c:' + tk)}</div></td>`;
+    });
+    h += '</tr>';
+  });
+  h += `<tr class="addrow"><th class="sticky-l" style="background:var(--paper)!important"><button class="addteam" data-act="append">＋ 팀 추가</button></th><td colspan="${Math.max(1, n)}"></td></tr>`;
+  h += '</tbody>';
+
+  grid.innerHTML = h;
+  grid.style.width = tableWidth() + 'px';
+  els = {};
+  grid.querySelectorAll('[data-c]').forEach(el => { els[key(+el.dataset.r, +el.dataset.c)] = el; });
+
+  // 구조가 바뀌었을 수 있으니 선택 정리
+  sel = new Set([...sel].filter(k => selectable(...parseKey(k))));
+  if (anchor && !selectable(anchor.r, anchor.c)) anchor = null;
+  if (cursor && !selectable(cursor.r, cursor.c)) cursor = null;
+
+  applyStatus();
+  renderSelection();
+  updateUndoBtns();
+}
+const cellEl = (r, c) => els[key(r, c)];
+
+function applyStatus(){
+  const t = todayStr();
+  document.body.classList.toggle('dim', S.dimPast);
+  const d = new Date();
+  $('today').textContent = `오늘 ${d.getFullYear()}.${pad(d.getMonth() + 1)}.${pad(d.getDate())} (${'일월화수목금토'[d.getDay()]})`;
+  const sts = stageStatuses(t);
+  S.stages.forEach((s, i) => {
+    const c = i + 1, st = sts[i];
+    grid.querySelectorAll(`[data-c="${c}"]`).forEach(el => {
+      el.classList.remove('col-now', 'col-past', 'col-todo');
+      if (st.k !== 'none') el.classList.add('col-' + st.k);
+    });
+    const hd = cellEl(0, c), sc = cellEl(1, c);
+    if (hd) hd.querySelector('.h-meta').innerHTML = chipHtml(st);
+    if (sc) sc.querySelector('.dprint').textContent = st.k === 'none' ? '' : fmtDue(st.due);
+  });
+}
+
+/* ── 선택 ── */
+function rectKeys(a, b){
+  const out = new Set();
+  const r0 = Math.min(a.r, b.r), r1 = Math.max(a.r, b.r), c0 = Math.min(a.c, b.c), c1 = Math.max(a.c, b.c);
+  for (let r = r0; r <= r1; r++) for (let c = c0; c <= c1; c++) if (selectable(r, c)) out.add(key(r, c));
+  return out;
+}
+function visSel(r, vc){
+  return vc >= 0 && sel.has(key(r, vc));
+}
+function renderSelection(){
+  grid.querySelectorAll('.sel,.cur').forEach(el => el.classList.remove('sel', 'cur', 'et', 'eb', 'el', 'er'));
+  if (sel.size) {
+    grid.querySelectorAll('[data-vc]').forEach(el => {
+      const r = +el.dataset.r, vc = +el.dataset.vc;
+      if (!visSel(r, vc)) return;
+      el.classList.add('sel');
+      if (!visSel(r - 1, vc)) el.classList.add('et');
+      if (!visSel(r + 1, vc)) el.classList.add('eb');
+      if (!visSel(r, vc - 1)) el.classList.add('el');
+      if (!visSel(r, vc + 1)) el.classList.add('er');
+    });
+  }
+  if (cursor && sel.has(key(cursor.r, cursor.c))) { const el = cellEl(cursor.r, cursor.c); if (el) el.classList.add('cur'); }
+  $('selinfo').textContent = sel.size ? `${sel.size}칸 선택` : '';
+}
+function selectOne(p){ anchor = cursor = p; sel = new Set([key(p.r, p.c)]); renderSelection(); }
+function clearSel(){ sel = new Set(); anchor = cursor = null; renderSelection(); }
+
+/* ── 편집 ── */
+function startEdit(r, c, selectAll){
+  if (!selectable(r, c)) return;
+  if (editing) finishEdit(true);
+  const el = cellEl(r, c); if (!el) return;
+  const txt = el.querySelector('.txt'); if (!txt) return;
+  const cs = getComputedStyle(txt);
+  const ta = document.createElement('textarea');
+  ta.className = 'editor';
+  ta.value = getText(r, c);
+  ta.spellcheck = false;
+  Object.assign(ta.style, { padding: cs.padding, fontSize: cs.fontSize, fontWeight: cs.fontWeight, lineHeight: cs.lineHeight, letterSpacing: cs.letterSpacing, minHeight: Math.max(txt.offsetHeight, parseFloat(cs.lineHeight) || 20) + 'px' });
+  txt.replaceWith(ta);
+  el.classList.add('editing');
+  editing = { r, c, ta, orig: ta.value };
+  const fit = () => { ta.style.height = 'auto'; ta.style.height = ta.scrollHeight + 'px'; };
+  fit();
+  ta.addEventListener('input', fit);
+  ta.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && !e.isComposing) { e.preventDefault(); finishEdit(true); }
+    else if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); finishEdit(true); }
+    e.stopPropagation();
+  });
+  ta.addEventListener('blur', () => { if (editing && editing.ta === ta) finishEdit(true); });
+  ta.focus();
+  if (selectAll) ta.select(); else ta.setSelectionRange(ta.value.length, ta.value.length);
+  selectOne({ r, c });
+}
+function finishEdit(saveIt){
+  if (!editing) return;
+  const { r, c, ta, orig } = editing;
+  editing = null;
+  const v = ta.value.replace(/\s+$/, '');
+  if (saveIt && v !== orig) commit(() => setText(r, c, v));
+  else render();
+}
+
+function editTitle(){
+  if (editing) finishEdit(true);
+  const inp = document.createElement('input');
+  inp.className = 'title-input';
+  inp.value = S.title;
+  titleEl.replaceWith(inp);
+  inp.focus(); inp.select();
+  let done = false;
+  const fin = () => {
+    if (done) return; done = true;
+    inp.replaceWith(titleEl);
+    const v = inp.value.trim() || '제목 없음';
+    if (v !== S.title) commit(() => { S.title = v; }); else render();
+  };
+  inp.addEventListener('keydown', e => { if ((e.key === 'Enter' || e.key === 'Escape') && !e.isComposing) { e.preventDefault(); fin(); } });
+  inp.addEventListener('blur', fin);
+}
+function editTag(i){
+  if (editing) finishEdit(true);
+  const th = grid.querySelector(`[data-lab="${i}"]`); if (!th) return;
+  const stage = S.stages[i];
+  const inp = document.createElement('input');
+  inp.className = 'tag-input';
+  inp.value = stage.tag;
+  inp.placeholder = '라벨 (비우면 삭제)';
+  th.innerHTML = ''; th.appendChild(inp);
+  inp.focus(); inp.select();
+  let done = false;
+  const fin = () => {
+    if (done) return; done = true;
+    const v = inp.value.trim();
+    if (v !== stage.tag) commit(() => { stage.tag = v; }); else render();
+  };
+  inp.addEventListener('keydown', e => { if ((e.key === 'Enter' || e.key === 'Escape') && !e.isComposing) { e.preventDefault(); fin(); } });
+  inp.addEventListener('blur', fin);
+}
+
+
+/* 글자 단위 색상: 칸 색상과 별도로 문자 위치를 저장한다. */
+let textSelection = null;
+function colorRuns(runs, start, end, color){
+  const next = [];
+  for (const run of runs || []) {
+    if (run.end <= start || run.start >= end) next.push({...run});
+    else {
+      if (run.start < start) next.push({...run, end:start});
+      if (run.end > end) next.push({...run, start:end});
+    }
+  }
+  if (color) next.push({start,end,color});
+  next.sort((a,b) => a.start-b.start);
+  const merged=[];
+  for (const run of next) {
+    const last=merged[merged.length-1];
+    if(last && last.end===run.start && last.color===run.color) last.end=run.end;
+    else merged.push(run);
+  }
+  return merged;
+}
+function rebaseRuns(runs, before, after){
+  if (before===after) return runs;
+  let p=0;
+  while(p<before.length && p<after.length && before[p]===after[p]) p++;
+  let oldEnd=before.length,newEnd=after.length;
+  while(oldEnd>p && newEnd>p && before[oldEnd-1]===after[newEnd-1]) {oldEnd--;newEnd--;}
+  const delta=newEnd-oldEnd, result=[];
+  for(const run of runs||[]) {
+    if(run.start<p) result.push({...run,end:Math.min(run.end,p)});
+    if(run.end>oldEnd) result.push({...run,start:Math.max(run.start,oldEnd)+delta,end:run.end+delta});
+  }
+  return result.filter(r=>r.end>r.start);
+}
+function offsetInText(root,node,offset){
+  const target = node.nodeType===Node.ELEMENT_NODE ? node : node.parentElement;
+  const line=target.closest('.ln');
+  if(!line || !root.contains(line)) return null;
+  let count=0;
+  for(const ln of root.querySelectorAll('.ln')) {
+    if(ln===line) break;
+    count+=ln.textContent.length+1;
+  }
+  const range=document.createRange();
+  range.selectNodeContents(line);range.setEnd(node,offset);
+  return count+range.toString().length;
+}
+function readTextSelection(){
+  if(editing && editing.ta.selectionEnd>editing.ta.selectionStart) {
+    const x=ref(editing.r,editing.c);
+    if(x && x.type!=='sched') return {r:editing.r,c:editing.c,ck:x.ck,start:editing.ta.selectionStart,end:editing.ta.selectionEnd};
+  }
+  const selection=window.getSelection();
+  if(!selection || selection.isCollapsed || !selection.rangeCount) return null;
+  const range=selection.getRangeAt(0);
+  const element=node=>node.nodeType===Node.ELEMENT_NODE?node:node.parentElement;
+  const root=element(range.startContainer).closest('#grid .txt');
+  if(!root || root!==element(range.endContainer).closest('#grid .txt')) return null;
+  const cell=root.closest('[data-c]');
+  if(!cell) return null;
+  const r=+cell.dataset.r,c=+cell.dataset.c,x=ref(r,c);
+  if(!x || x.type==='sched') return null;
+  const start=offsetInText(root,range.startContainer,range.startOffset);
+  const end=offsetInText(root,range.endContainer,range.endOffset);
+  return start!==null && end>start ? {r,c,ck:x.ck,start,end} : null;
+}
+function textPoint(root,offset){
+  const lines=[...root.querySelectorAll('.ln')];let pos=0;
+  for(let i=0;i<lines.length;i++) {
+    const ln=lines[i],len=ln.textContent.length;
+    if(offset<=pos+len || i===lines.length-1) {
+      let local=Math.max(0,Math.min(len,offset-pos));
+      const walker=document.createTreeWalker(ln,NodeFilter.SHOW_TEXT);let node;
+      while(node=walker.nextNode()) {if(local<=node.length)return {node,offset:local};local-=node.length;}
+      return {node:ln,offset:0};
+    }
+    pos+=len+1;
+  }
+  return null;
+}
+function restoreTextSelection(selected){
+  const root=cellEl(selected.r,selected.c)?.querySelector('.txt');
+  if(!root) return;
+  const a=textPoint(root,selected.start),b=textPoint(root,selected.end);
+  if(!a||!b)return;
+  const range=document.createRange();range.setStart(a.node,a.offset);range.setEnd(b.node,b.offset);
+  const selection=window.getSelection();selection.removeAllRanges();selection.addRange(range);
+  textSelection=selected;
+  $('selinfo').textContent=(selected.end-selected.start)+'글자 선택';
+}
+document.addEventListener('selectionchange',()=>{
+  const found=readTextSelection();
+  if(found){textSelection=found;$('selinfo').textContent=(found.end-found.start)+'글자 선택';}
+  else if(!document.activeElement?.closest('.palette[data-kind="fg"]')) textSelection=null;
+});
+document.addEventListener('mousedown',e=>{
+  if(!e.target.closest('.palette[data-kind="fg"]')) textSelection=null;
+},true);
+document.addEventListener('mousedown',e=>{
+  const palette=e.target.closest('.palette[data-kind="fg"]');
+  if(!palette)return;
+  textSelection=readTextSelection()||textSelection;
+  if(!e.target.closest('input,label'))e.preventDefault();
+},true);
+
+/* ── 작업 ── */
+function forSelected(fn){ for (const k of sel) { const [r, c] = parseKey(k); const x = ref(r, c); if (x) fn(x, r, c); } }
+function needSel(){ if (sel.size) return true; toast('먼저 칸을 선택하세요 (클릭 또는 드래그)'); return false; }
+function applyColor(color, kind = 'bg'){
+  const chosen=kind==='fg' ? (readTextSelection()||textSelection) : null;
+  if (editing) finishEdit(true);
+  if(chosen && chosen.end>chosen.start) {
+    const text=getText(chosen.r,chosen.c), end=Math.min(chosen.end,text.length);
+    if(end>chosen.start) {
+      commit(()=>{
+        const runs=colorRuns(S.richTextColors[chosen.ck],chosen.start,end,color);
+        if(runs.length) S.richTextColors[chosen.ck]=runs;else delete S.richTextColors[chosen.ck];
+      });
+      restoreTextSelection({...chosen,end});
+      toast((end-chosen.start)+'글자에만 글자색 '+(color?'적용':'지우기'));
+      return;
+    }
+  }
+  if (!needSel()) return;
+  const m = S[COLOR_MAP[kind]];
+  commit(() => forSelected(x => {
+    if (color) m[x.ck] = color; else delete m[x.ck];
+    if(kind==='fg') {
+      delete S.richTextColors[x.ck];
+      if(x.type==='body')delete S.lineTextColors[x.tk];
+    }
+  }));
+}
+function clearContents(){
+  if (!sel.size) return;
+  commit(() => forSelected((x, r, c) => { if (x.type === 'sched') delete S.schedule[x.stage.id]; else setText(r, c, ''); }));
+}
+function addTeam(at){
+  const t = { id: uid('t'), name: '새 팀' };
+  commit(() => { S.teams.splice(at, 0, t); });
+  startEdit(at + 2, 0, true);
+  const el = cellEl(at + 2, 0); if (el) el.scrollIntoView({ block: 'nearest' });
+}
+function moveTeam(i, d){
+  const j = i + d; if (j < 0 || j >= S.teams.length) return;
+  commit(() => { const [t] = S.teams.splice(i, 1); S.teams.splice(j, 0, t); });
+  selectOne({ r: j + 2, c: 0 });
+}
+function deleteTeam(i){
+  const t = S.teams[i]; if (!t) return;
+  const has = Object.keys(S.cells).some(k => k.startsWith(t.id + '|'));
+  if (has && !confirm(`'${t.name || '이름 없는 팀'}' 팀과 해당 행의 내용을 모두 삭제할까요?\n(Ctrl+Z로 되돌릴 수 있습니다)`)) return;
+  commit(() => {
+    S.teams.splice(i, 1);
+    for (const k of Object.keys(S.cells)) if (k.startsWith(t.id + '|')) delete S.cells[k];
+    dropColors(k => k === 't:' + t.id || k.startsWith('c:' + t.id + '|'));
+  });
+  clearSel();
+}
+function insertStage(at){
+  const s = { id: uid('s'), name: '새 단계', tag: '', width: 212 };
+  commit(() => { S.stages.splice(at, 0, s); });
+  startEdit(0, at + 1, true);
+}
+function moveStage(i, d){
+  const j = i + d; if (j < 0 || j >= S.stages.length) return;
+  commit(() => { const [s] = S.stages.splice(i, 1); S.stages.splice(j, 0, s); });
+  selectOne({ r: 0, c: j + 1 });
+}
+function deleteStage(i){
+  const s = S.stages[i]; if (!s) return;
+  if (!confirm(`'${s.name || '이름 없는 단계'}' 단계(열 전체)를 삭제할까요?\n(Ctrl+Z로 되돌릴 수 있습니다)`)) return;
+  commit(() => {
+    S.stages.splice(i, 1);
+    delete S.schedule[s.id];
+    for (const k of Object.keys(S.cells)) if (k.endsWith('|' + s.id)) delete S.cells[k];
+    dropColors(k => k === 'h:' + s.id || k === 's:' + s.id || k.endsWith('|' + s.id));
+  });
+  clearSel();
+}
+
+/* ── 복사 / 붙여넣기 (TSV, 구글시트 호환) ── */
+function toTSV(){
+  const ks = [...sel].map(parseKey);
+  const r0 = Math.min(...ks.map(k => k[0])), r1 = Math.max(...ks.map(k => k[0]));
+  const c0 = Math.min(...ks.map(k => k[1])), c1 = Math.max(...ks.map(k => k[1]));
+  const q = v => /[\t\n"]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v;
+  const lines = [];
+  for (let r = r0; r <= r1; r++) {
+    const row = [];
+    for (let c = c0; c <= c1; c++) row.push(sel.has(key(r, c)) ? q(getText(r, c)) : '');
+    lines.push(row.join('\t'));
+  }
+  return lines.join('\n');
+}
+function parseTSV(text){
+  const rows = [[]]; let cur = '', i = 0, inQ = false;
+  text = text.replace(/\r\n?/g, '\n');
+  while (i < text.length) {
+    const ch = text[i];
+    if (inQ) {
+      if (ch === '"') { if (text[i + 1] === '"') { cur += '"'; i += 2; continue; } inQ = false; i++; continue; }
+      cur += ch; i++; continue;
+    }
+    if (ch === '"' && cur === '') { inQ = true; i++; continue; }
+    if (ch === '\t') { rows[rows.length - 1].push(cur); cur = ''; i++; continue; }
+    if (ch === '\n') { rows[rows.length - 1].push(cur); rows.push([]); cur = ''; i++; continue; }
+    cur += ch; i++;
+  }
+  rows[rows.length - 1].push(cur);
+  if (rows.length > 1 && rows[rows.length - 1].length === 1 && rows[rows.length - 1][0] === '') rows.pop();
+  return rows;
+}
+function pasteText(text){
+  if (!needSel()) return;
+  const data = parseTSV(text);
+  const ks = [...sel].map(parseKey);
+  const r0 = Math.min(...ks.map(k => k[0])), c0 = Math.min(...ks.map(k => k[1]));
+  commit(() => {
+    if (data.length === 1 && data[0].length === 1) { forSelected((x, r, c) => setText(r, c, data[0][0])); return; }
+    const added = new Set();
+    data.forEach((row, dr) => row.forEach((v, dc) => {
+      const r = r0 + dr, c = c0 + dc;
+      if (selectable(r, c)) { setText(r, c, v); added.add(key(r, c)); }
+    }));
+    sel = added; anchor = cursor = { r: r0, c: c0 };
+  });
+}
+
+/* ── 마우스 ── */
+function cellFromPoint(x, y){
+  const el = document.elementFromPoint(x, y);
+  const td = el && el.closest && el.closest('#grid [data-c]');
+  return td ? { r: +td.dataset.r, c: +td.dataset.c } : null;
+}
+board.addEventListener('mousedown', e => {
+  closeMenu();
+  if (e.button !== 0) return;
+  const rz = e.target.closest('.rz');
+  if (rz) { if (editing) finishEdit(true); startResize(e, +rz.dataset.rz); return; }
+  if (editing && editing.ta === e.target) return;
+  if (e.target.closest('input,textarea,button')) return;
+  const td = e.target.closest('[data-c]');
+  const p = td ? { r: +td.dataset.r, c: +td.dataset.c } : null;
+  if (editing) finishEdit(true);
+  if (!p) { if (!e.target.closest('th.lab')) clearSel(); return; }
+  if(e.target.closest('.txt') && !e.shiftKey && !e.ctrlKey && !e.metaKey) {
+    drag=null;
+    selectOne(p);
+    return;
+  }
+  window.getSelection()?.removeAllRanges();
+  textSelection=null;
+  e.preventDefault();
+  const add = e.ctrlKey || e.metaKey;
+  if (e.shiftKey && anchor) {
+    cursor = p;
+    sel = add ? new Set([...sel, ...rectKeys(anchor, p)]) : rectKeys(anchor, p);
+    drag = { base: add ? new Set(sel) : new Set(), x: e.clientX, y: e.clientY };
+  } else if (add) {
+    const k = key(p.r, p.c);
+    if (sel.has(k)) { sel.delete(k); anchor = cursor = p; renderSelection(); return; }
+    anchor = cursor = p;
+    drag = { base: new Set(sel), x: e.clientX, y: e.clientY };
+    sel.add(k);
+  } else {
+    anchor = cursor = p;
+    sel = new Set([key(p.r, p.c)]);
+    drag = { base: new Set(), x: e.clientX, y: e.clientY };
+  }
+  renderSelection();
+  requestAnimationFrame(autoScroll);
+});
+function updateDrag(){
+  const p = cellFromPoint(drag.x, drag.y);
+  if (!p || !anchor || (cursor && p.r === cursor.r && p.c === cursor.c)) return;
+  cursor = p;
+  sel = new Set([...drag.base, ...rectKeys(anchor, p)]);
+  renderSelection();
+}
+document.addEventListener('mousemove', e => { if (!drag) return; drag.x = e.clientX; drag.y = e.clientY; updateDrag(); });
+document.addEventListener('mouseup', () => { drag = null; });
+function autoScroll(){
+  if (!drag) return;
+  const b = board.getBoundingClientRect();
+  const thead = grid.tHead ? grid.tHead.offsetHeight : 0;
+  const L = b.left + S.teamColWidth, T = b.top + thead, m = 36;
+  const sp = d => Math.min(28, Math.ceil(d / 3));
+  let dx = 0, dy = 0;
+  if (drag.x < L + m && board.scrollLeft > 0 && drag.x > b.left) dx = -sp(L + m - drag.x);
+  else if (drag.x > b.right - m) dx = sp(drag.x - (b.right - m));
+  if (drag.y < T + m && board.scrollTop > 0 && drag.y > b.top) dy = -sp(T + m - drag.y);
+  else if (drag.y > b.bottom - m) dy = sp(drag.y - (b.bottom - m));
+  if (dx || dy) { board.scrollLeft += dx; board.scrollTop += dy; updateDrag(); }
+  requestAnimationFrame(autoScroll);
+}
+board.addEventListener('dblclick', e => {
+  if (e.target.closest('input,textarea,button,.rz')) return;
+  const lab = e.target.closest('th.lab[data-lab]');
+  if (lab) { editTag(+lab.dataset.lab); return; }
+  const td = e.target.closest('[data-c]');
+  if (td) startEdit(+td.dataset.r, +td.dataset.c);
+});
+board.addEventListener('click', e => {
+  const dueBtn = e.target.closest('.due-btn');
+  if (dueBtn) {
+    const inp = dueBtn.parentNode.querySelector('.due-inp');
+    try { inp.showPicker(); } catch (err) { inp.style.pointerEvents = 'auto'; inp.focus(); inp.click(); }
+    return;
+  }
+  const clr = e.target.closest('.due-clr');
+  if (clr) { const id = clr.dataset.sid; commit(() => { sched(id).due = ''; tidySched(id); }); return; }
+  const add = e.target.closest('.tag-add');
+  if (add) { editTag(+add.closest('th').dataset.lab); return; }
+  const b = e.target.closest('button[data-act]');
+  if (!b) return;
+  const i = +b.dataset.ti;
+  ({ up: () => moveTeam(i, -1), down: () => moveTeam(i, 1), add: () => addTeam(i + 1), del: () => deleteTeam(i), append: () => addTeam(S.teams.length) })[b.dataset.act]();
+});
+board.addEventListener('change', e => {
+  const inp = e.target;
+  if (!inp.matches('input.due-inp')) return;
+  const id = inp.dataset.sid, v = isDate(inp.value) ? inp.value : '';
+  commit(() => { sched(id).due = v; tidySched(id); });
+});
+
+/* 열 너비 */
+function startResize(e, i){
+  e.preventDefault(); e.stopPropagation();
+  const before = JSON.stringify(S), x0 = e.clientX;
+  const w0 = i < 0 ? S.teamColWidth : S.stages[i].width;
+  const col = grid.querySelectorAll('col')[i < 0 ? 0 : 1 + i];
+  document.body.classList.add('resizing');
+  const move = ev => {
+    const w = Math.round(Math.max(i < 0 ? MIN_TEAM_W : MIN_W, Math.min(MAX_W, w0 + ev.clientX - x0)));
+    if (i < 0) S.teamColWidth = w; else S.stages[i].width = w;
+    col.style.width = w + 'px';
+    grid.style.width = tableWidth() + 'px';
+  };
+  const up = () => {
+    document.removeEventListener('mousemove', move);
+    document.removeEventListener('mouseup', up);
+    document.body.classList.remove('resizing');
+    if (JSON.stringify(S) !== before) { pushUndo(before); save(); }
+  };
+  document.addEventListener('mousemove', move);
+  document.addEventListener('mouseup', up);
+}
+
+/* ── 우클릭 메뉴 ── */
+const menu = $('menu');
+function openMenu(x, y, items){
+  menu.innerHTML = items.map((it, i) => it === '-' ? '<hr>'
+    : `<button data-i="${i}" class="${it.danger ? 'danger' : ''}"${it.disabled ? ' disabled style="opacity:.4;cursor:default"' : ''}><span>${it.label}</span>${it.kbd ? `<kbd>${it.kbd}</kbd>` : ''}</button>`).join('');
+  menu.hidden = false;
+  const w = menu.offsetWidth, h = menu.offsetHeight;
+  menu.style.left = Math.min(x, innerWidth - w - 8) + 'px';
+  menu.style.top = Math.min(y, innerHeight - h - 8) + 'px';
+  menu.onclick = ev => {
+    const b = ev.target.closest('button'); if (!b || b.disabled) return;
+    closeMenu(); items[+b.dataset.i].run();
+  };
+}
+function closeMenu(){ menu.hidden = true; }
+board.addEventListener('contextmenu', e => {
+  const td = e.target.closest('[data-c]');
+  const lab = e.target.closest('th.lab[data-lab]');
+  if (!td && !lab) return;
+  e.preventDefault();
+  if (editing) finishEdit(true);
+  if (lab) {
+    const i = +lab.dataset.lab;
+    openMenu(e.clientX, e.clientY, [
+      { label: '라벨 편집', run: () => editTag(i) },
+      { label: '라벨 삭제', disabled: !S.stages[i].tag, danger: true, run: () => commit(() => { S.stages[i].tag = ''; }) }
+    ]);
+    return;
+  }
+  const r = +td.dataset.r, c = +td.dataset.c;
+  if (!sel.has(key(r, c))) selectOne({ r, c });
+  const colorItems = ['-', { label: '선택 칸 배경색 지우기', run: () => applyColor(null, 'bg') }, { label: '선택 칸 글자색 지우기', run: () => applyColor(null, 'fg') }];
+  if (r === 0) {
+    const i = c - 1, n = S.stages.length;
+    openMenu(e.clientX, e.clientY, [
+      { label: '단계명 편집', kbd: 'Enter', run: () => startEdit(r, c) },
+      { label: '라벨 편집 (예: 개발팀 전달)', run: () => editTag(i) },
+      '-',
+      { label: '왼쪽에 단계 삽입', run: () => insertStage(i) },
+      { label: '오른쪽에 단계 삽입', run: () => insertStage(i + 1) },
+      { label: '◀ 왼쪽으로 이동', disabled: i === 0, run: () => moveStage(i, -1) },
+      { label: '오른쪽으로 이동 ▶', disabled: i === n - 1, run: () => moveStage(i, 1) },
+      '-',
+      { label: '단계(열) 삭제', danger: true, disabled: n <= 1, run: () => deleteStage(i) },
+      ...colorItems
+    ]);
+  } else if (c === 0) {
+    const i = r - 2, n = S.teams.length;
+    openMenu(e.clientX, e.clientY, [
+      { label: '팀 이름 편집', kbd: 'Enter', run: () => startEdit(r, c) },
+      '-',
+      { label: '▲ 위로 이동', disabled: i === 0, run: () => moveTeam(i, -1) },
+      { label: '▼ 아래로 이동', disabled: i === n - 1, run: () => moveTeam(i, 1) },
+      { label: '위에 팀 추가', run: () => addTeam(i) },
+      { label: '아래에 팀 추가', run: () => addTeam(i + 1) },
+      '-',
+      { label: '팀(행) 삭제', danger: true, run: () => deleteTeam(i) },
+      ...colorItems
+    ]);
+  } else {
+    openMenu(e.clientX, e.clientY, [
+      ...(r === 1 ? [] : [{ label: '편집', kbd: 'Enter', run: () => startEdit(r, c) }]),
+      { label: '선택 칸 내용 지우기', kbd: 'Delete', run: clearContents },
+      ...colorItems
+    ]);
+  }
+});
+document.addEventListener('mousedown', e => { if (!menu.hidden && !menu.contains(e.target)) closeMenu(); });
+board.addEventListener('scroll', closeMenu, { passive: true });
+addEventListener('resize', closeMenu);
+
+/* ── 키보드 ── */
+function moveBy(dr, dc, extend){
+  const p = cursor || anchor || { r: 2, c: 1 };
+  let r = p.r + dr, c = p.c + dc;
+  if (r < 2 && c === 0) { if (dc) return; c = 1; }
+  if (!selectable(r, c)) return;
+  if (extend && anchor) { cursor = { r, c }; sel = rectKeys(anchor, cursor); renderSelection(); }
+  else selectOne({ r, c });
+  const el = cellEl(r, c); if (el) el.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+}
+document.addEventListener('keydown', e => {
+  if (editing) return;
+  if (e.target.closest && e.target.closest('input,textarea,select,dialog')) return;
+  const mod = e.ctrlKey || e.metaKey, k = e.key;
+  if (k === 'Escape') { if (!menu.hidden) closeMenu(); else clearSel(); return; }
+  if (mod && !e.shiftKey && k.toLowerCase() === 'z') { e.preventDefault(); undo(); return; }
+  if (mod && (k.toLowerCase() === 'y' || (e.shiftKey && k.toLowerCase() === 'z'))) { e.preventDefault(); redo(); return; }
+  if (mod && k.toLowerCase() === 'p') { e.preventDefault(); doPrint(); return; }
+  if (!sel.size && !k.startsWith('Arrow')) return;
+  if(readTextSelection() && (k==='Delete'||k==='Backspace')) { e.preventDefault(); return; }
+  if (k === 'Delete' || k === 'Backspace') { e.preventDefault(); clearContents(); }
+  else if ((k === 'Enter' || k === 'F2') && cursor) { e.preventDefault(); startEdit(cursor.r, cursor.c); }
+  else if (k === 'ArrowUp') { e.preventDefault(); moveBy(-1, 0, e.shiftKey); }
+  else if (k === 'ArrowDown') { e.preventDefault(); moveBy(1, 0, e.shiftKey); }
+  else if (k === 'ArrowLeft') { e.preventDefault(); moveBy(0, -1, e.shiftKey); }
+  else if (k === 'ArrowRight') { e.preventDefault(); moveBy(0, 1, e.shiftKey); }
+  else if (k === 'Tab') { e.preventDefault(); moveBy(0, e.shiftKey ? -1 : 1, false); }
+});
+const inField = t => t && t.closest && t.closest('input,textarea,dialog');
+document.addEventListener('copy', e => {
+  if (editing || inField(e.target) || !sel.size) return;
+  if (String(getSelection())) return;
+  e.preventDefault();
+  e.clipboardData.setData('text/plain', toTSV());
+  toast(`${sel.size}칸 복사됨`);
+});
+document.addEventListener('cut', e => {
+  if (editing || inField(e.target) || !sel.size) return;
+  if(readTextSelection()) return;
+  e.preventDefault();
+  e.clipboardData.setData('text/plain', toTSV());
+  clearContents();
+});
+document.addEventListener('paste', e => {
+  if (editing || inField(e.target) || !sel.size) return;
+  const t = e.clipboardData.getData('text/plain');
+  if (!t) return;
+  e.preventDefault();
+  pasteText(t);
+});
+
+/* ── 툴바 ── */
+const swatchHtml = (kind, c, title) => kind === 'fg'
+  ? `<button class="sw fg" data-color="${c}" style="color:${c}" title="${title}">가</button>`
+  : `<button class="sw" data-color="${c}" style="background:${c}" title="${title}"></button>`;
+function getRecent(kind){
+  try { return JSON.parse(localStorage.getItem(RECENT_KEYS[kind]) || '[]').filter(isHex); } catch (e) { return []; }
+}
+function renderRecent(kind){
+  const box = document.querySelector(`.palette[data-kind="${kind}"] .recent`);
+  box.innerHTML = getRecent(kind).map(c => swatchHtml(kind, c, '최근 사용자 지정 색 ' + c)).join('');
+}
+function addRecent(kind, c){
+  const recent = [c, ...getRecent(kind).filter(x => x.toLowerCase() !== c.toLowerCase())].slice(0, 4);
+  try { localStorage.setItem(RECENT_KEYS[kind], JSON.stringify(recent)); } catch (e) {}
+  renderRecent(kind);
+}
+document.querySelectorAll('.palette').forEach(g => {
+  const kind = g.dataset.kind;
+  g.querySelector('.swatches').innerHTML = (kind === 'fg' ? TEXT_PALETTE : PALETTE).map(([c, n]) => swatchHtml(kind, c, n)).join('');
+  renderRecent(kind);
+  g.addEventListener('click', e => { const b = e.target.closest('.sw'); if (b) applyColor(b.dataset.color, kind); });
+  g.querySelector('.customColor').addEventListener('change', e => { const c = e.target.value; if (!isHex(c)) return; addRecent(kind, c); applyColor(c, kind); });
+  g.querySelector('.clearColor').addEventListener('click', () => applyColor(null, kind));
+});
+$('undo').addEventListener('click', undo);
+$('redo').addEventListener('click', redo);
+$('addTeam').addEventListener('click', () => addTeam(S.teams.length));
+$('dimPast').addEventListener('change', e => commit(() => { S.dimPast = e.target.checked; }, { noRender: true }));
+$('gotoNow').addEventListener('click', () => {
+  const t = todayStr();
+  const sts = stageStatuses(t);
+  let i = sts.findIndex(s => s.k === 'now');
+  if (i < 0) i = sts.findIndex(s => s.k === 'todo');
+  if (i < 0) { toast('진행중이거나 예정된 단계가 없습니다. 일정 행에 목표을 입력하세요.'); return; }
+  const th = cellEl(0, i + 1);
+  board.scrollTo({ left: Math.max(0, th.offsetLeft - S.teamColWidth - 24), behavior: 'smooth' });
+  th.classList.remove('flash'); void th.offsetWidth; th.classList.add('flash');
+});
+titleEl.addEventListener('dblclick', editTitle);
+
+$('exportBtn').addEventListener('click', () => {
+  const d = new Date();
+  const stamp = `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}`;
+  const name = (S.title || 'process-board').replace(/[\\/:*?"<>|]+/g, '').replace(/\s+/g, '_').slice(0, 60);
+  const blob = new Blob([JSON.stringify({ ...S, exportedAt: d.toISOString() }, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `${name}_${stamp}.json`;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+  toast('JSON 파일로 내보냈습니다');
+});
+$('importBtn').addEventListener('click', () => $('fileInput').click());
+$('fileInput').addEventListener('change', e => {
+  const f = e.target.files[0]; e.target.value = '';
+  if (!f) return;
+  const rd = new FileReader();
+  rd.onload = () => {
+    try {
+      const next = normalize(JSON.parse(rd.result));
+      if (!confirm(`'${f.name}' 파일로 현재 보드를 교체할까요?\n(Ctrl+Z로 되돌릴 수 있습니다)`)) return;
+      commit(() => { S = next; });
+      clearSel();
+      toast('불러오기 완료');
+    } catch (err) { alert('불러오기 실패: ' + err.message); }
+  };
+  rd.readAsText(f, 'utf-8');
+});
+function doPrint(){ if (editing) finishEdit(true); clearSel(); window.print(); }
+$('printBtn').addEventListener('click', doPrint);
+
+const helpDlg = $('helpDlg');
+$('helpBtn').addEventListener('click', () => helpDlg.showModal());
+$('closeHelp').addEventListener('click', () => helpDlg.close());
+$('resetBtn').addEventListener('click', () => {
+  if (!confirm('보드를 초기 상태(원본 양식)로 되돌릴까요?\n(Ctrl+Z로 되돌릴 수 있습니다)')) return;
+  helpDlg.close();
+  commit(() => { S = defaultState(); });
+  clearSel();
+});
+
+let toastTimer;
+function toast(msg){
+  const t = $('toast');
+  t.textContent = msg; t.classList.add('show');
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), 1800);
+}
+
+/* 날짜가 바뀌면 상태 갱신 */
+let lastDay = todayStr();
+const dayCheck = () => { const t = todayStr(); if (t !== lastDay) { lastDay = t; applyStatus(); } };
+setInterval(dayCheck, 60000);
+document.addEventListener('visibilitychange', dayCheck);
+
+/* 다른 탭에서 수정한 경우 동기화 */
+addEventListener('storage', e => {
+  if (e.key !== STORE_KEY || !e.newValue || editing) return;
+  try { S = normalize(JSON.parse(e.newValue)); render(); } catch (err) {}
+});
+
+render();
+let stored = null;
+try { stored = localStorage.getItem(STORE_KEY); } catch (e) {}
+if (!stored) save();
+else {
+  let ver = 0; try { ver = JSON.parse(stored).version; } catch (e) {}
+  if (ver !== 2 || seedPatched) save(); else $('saved').textContent = '자동 저장 켜짐';  // 이전 형식·기본값 개정분은 바로 저장
+  if (seedPatched) toast(`‘주요 질문’ ${seedPatched}개 칸을 핵심 질문 3개씩으로 정리했습니다`);
+}
+})();
+</script>
+</body>
+</html>
